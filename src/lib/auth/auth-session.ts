@@ -7,17 +7,19 @@ export class AuthSession {
     return typeof window === 'undefined' ? null : window.localStorage.getItem(ACCESS_TOKEN_KEY);
   }
 
-  get refreshToken(): string | null {
-    return typeof window === 'undefined' ? null : window.localStorage.getItem(REFRESH_TOKEN_KEY);
-  }
-
   get signedIn(): boolean {
-    return Boolean(this.accessToken && this.refreshToken);
+    return Boolean(this.accessToken);
   }
 
-  save(accessToken: string, refreshToken: string): void {
+  /** Reads the previous credential for one-time cookie migration. */
+  readLegacyRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+
+  save(accessToken: string): void {
     window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
   clear(): void {

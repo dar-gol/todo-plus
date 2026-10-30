@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me": {
         parameters: {
             query?: never;
@@ -983,10 +999,9 @@ export interface components {
         AuthTokenResponseDto: {
             /** @description Bearer token used to authenticate protected API requests. */
             accessToken: string;
-            /** @description Opaque token used to renew the bearer session without password login. */
-            refreshToken: string;
             /** @example Bearer */
             tokenType: string;
+            user: components["schemas"]["UserProfileResponseDto"];
         };
         CancelScanDto: {
             /** @example household-1 */
@@ -1371,9 +1386,17 @@ export interface components {
             unit: "g" | "ml" | "pcs";
         };
         CreateTodoTaskDto: {
+            description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
+            /** @description Validated Tiptap JSON document. */
+            noteDocument?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Plain-text fallback derived from the note document. */
             notes?: string | null;
+            /** @description Custom moments when push reminders should be delivered. */
+            reminders?: string[];
             /** @enum {string} */
             scope: "personal" | "family";
             /** @example Book a dentist appointment */
@@ -2120,7 +2143,11 @@ export interface components {
             version: number;
         };
         RefreshTokenDto: {
-            refreshToken: string;
+            /**
+             * @deprecated
+             * @description Legacy migration fallback. Browser clients use the HttpOnly session cookie.
+             */
+            refreshToken?: string;
         };
         RegisterDto: {
             /** @example ada@example.com */
@@ -2234,10 +2261,16 @@ export interface components {
             createdAt: string;
             createdByName?: string | null;
             createdByUserId: string;
+            description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
             id: string;
+            noteDocument?: {
+                [key: string]: unknown;
+            } | null;
             notes?: string | null;
+            /** @description Pending custom reminder moments. */
+            reminders: string[];
             /** @enum {string} */
             scope: "personal" | "family";
             title: string;
@@ -2301,9 +2334,17 @@ export interface components {
         };
         UpdateTodoTaskDto: {
             completed?: boolean;
+            description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
+            /** @description Validated Tiptap JSON document. */
+            noteDocument?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Plain-text fallback derived from the note document. */
             notes?: string | null;
+            /** @description Replaces all pending custom reminder moments. */
+            reminders?: string[];
             /** @example Book a dentist appointment */
             title?: string;
         };
@@ -2417,6 +2458,33 @@ export interface operations {
             };
         };
     };
+    AuthController_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revokes and clears the shared browser session. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request validation failed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+        };
+    };
     AuthController_updateCurrentUser: {
         parameters: {
             query?: never;
@@ -2466,7 +2534,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["RefreshTokenDto"];
             };
