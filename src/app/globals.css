@@ -61,8 +61,6 @@ button:disabled { cursor: wait; opacity: .58; }
 .push-banner strong { font-size: .92rem; }
 .push-banner span { color: var(--muted); font-size: .8rem; line-height: 1.35; }
 .push-banner button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 12px; color: white; background: var(--accent); font-weight: 800; cursor: pointer; }
-.push-enabled { grid-template-columns: auto 1fr; border-color: #cfe1d7; background: #f3faf6; }
-.push-enabled > svg { color: var(--success); }
 .push-banner .banner-error { grid-column: 2 / -1; color: var(--danger); }
 .small-muted { text-align: right; }
 

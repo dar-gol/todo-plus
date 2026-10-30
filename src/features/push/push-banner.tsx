@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, BellRing } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { pushNotifications } from './push-notifications';
 
@@ -12,9 +12,7 @@ export function PushBanner() {
   useEffect(() => {
     queueMicrotask(() => setPermission(pushNotifications.permission()));
   }, []);
-  if (permission === 'granted') {
-    return <div className="push-banner push-enabled"><BellRing aria-hidden="true" /><span>Przypomnienia są włączone na tym urządzeniu.</span></div>;
-  }
+  if (permission === 'granted') return null;
 
   async function enable() {
     setPending(true);
