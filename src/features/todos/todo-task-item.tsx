@@ -1,16 +1,37 @@
+import type { CSSProperties, HTMLAttributes, KeyboardEventHandler, MouseEventHandler, TouchEventHandler } from 'react';
 import { CalendarDays, Trash2 } from 'lucide-react';
 import type { TodoTask } from './todo-api';
 
-export function TodoTaskItem({ task, pending, onToggle, onRemove, onOpen }: {
+export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown, onDragMouseDown, onDragTouchStart, dragging = false, itemRef, style, onToggle, onRemove, onOpen }: {
   task: TodoTask;
   pending: boolean;
+  sortableAttributes?: HTMLAttributes<HTMLLIElement>;
+  onDragKeyDown?: KeyboardEventHandler<HTMLLIElement>;
+  onDragMouseDown?: MouseEventHandler<HTMLLIElement>;
+  onDragTouchStart?: TouchEventHandler<HTMLLIElement>;
+  dragging?: boolean;
+  itemRef?: (node: HTMLLIElement | null) => void;
+  style?: CSSProperties;
   onToggle: () => void;
   onRemove: () => void;
   onOpen: () => void;
 }) {
   const completed = Boolean(task.completedAt);
   return (
-    <li className={`task-item ${completed ? 'task-completed' : ''}`}>
+    <li
+      {...sortableAttributes}
+      ref={itemRef}
+      style={style}
+      className={`task-item ${sortableAttributes ? 'task-sortable' : ''} ${dragging ? 'task-dragging' : ''} ${completed ? 'task-completed' : ''}`}
+      role={sortableAttributes ? 'group' : undefined}
+      tabIndex={sortableAttributes ? 0 : undefined}
+      aria-label={sortableAttributes ? `Zadanie ${task.title}. Przytrzymaj, aby zmienić priorytet.` : undefined}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget) onDragKeyDown?.(event);
+      }}
+      onMouseDown={onDragMouseDown}
+      onTouchStart={onDragTouchStart}
+    >
       <button className="task-check" onClick={onToggle} disabled={pending} aria-label={completed ? `Przywróć zadanie ${task.title}` : `Ukończ zadanie ${task.title}`}>
         <span aria-hidden="true">{completed ? '✓' : ''}</span>
       </button>

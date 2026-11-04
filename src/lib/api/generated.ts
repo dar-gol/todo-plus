@@ -964,6 +964,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/todos/christian-holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TodosController_listChristianHolidays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/todos/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TodosController_listHolidays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/todos/name-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TodosController_listNameDays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/todos/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["TodosController_reorder"];
+        trace?: never;
+    };
     "/todos/{taskId}": {
         parameters: {
             query?: never;
@@ -1101,6 +1165,18 @@ export interface components {
         };
         CheckoutShoppingListResponseDto: {
             items: components["schemas"]["ShoppingListItemResponseDto"][];
+        };
+        ChristianHolidayListResponseDto: {
+            items: components["schemas"]["ChristianHolidayResponseDto"][];
+        };
+        ChristianHolidayResponseDto: {
+            /**
+             * Format: date
+             * @example 2027-03-28
+             */
+            date: string;
+            /** @example Niedziela Zmartwychwstania Pańskiego */
+            name: string;
         };
         ConfirmReceiptDto: {
             /** @example PLN */
@@ -1701,6 +1777,24 @@ export interface components {
             /** @example 3 */
             markedCount: number;
         };
+        NameDayListResponseDto: {
+            items: components["schemas"]["NameDayResponseDto"][];
+        };
+        NameDayResponseDto: {
+            /**
+             * Format: date
+             * @example 2027-10-30
+             */
+            date: string;
+            /**
+             * @example [
+             *       "Edmund",
+             *       "Przemysław",
+             *       "Zenobia"
+             *     ]
+             */
+            names: string[];
+        };
         PaginationMetadataResponseDto: {
             /** @example true */
             hasNextPage: boolean;
@@ -1764,6 +1858,20 @@ export interface components {
             householdId: string;
             id: string;
             lowStockThreshold?: number | null;
+            name: string;
+        };
+        PublicHolidayListResponseDto: {
+            items: components["schemas"]["PublicHolidayResponseDto"][];
+        };
+        PublicHolidayResponseDto: {
+            /** @example PL */
+            countryCode: string;
+            /**
+             * Format: date
+             * @example 2026-12-24
+             */
+            date: string;
+            /** @example Wigilia Bożego Narodzenia */
             name: string;
         };
         PushPublicKeyResponseDto: {
@@ -2164,6 +2272,13 @@ export interface components {
         RemovePushSubscriptionDto: {
             endpoint: string;
         };
+        ReorderTodoTasksDto: {
+            laterTaskIds: string[];
+            pinnedTaskIds: string[];
+            /** @enum {string} */
+            scope: "personal" | "family";
+            standardTaskIds: string[];
+        };
         SaveCatalogIngredientMatchOverrideDto: {
             catalogIngredientId: string;
             displayName?: string | null;
@@ -2273,6 +2388,8 @@ export interface components {
             reminders: string[];
             /** @enum {string} */
             scope: "personal" | "family";
+            /** @enum {string} */
+            section: "pinned" | "standard" | "later";
             title: string;
             /** Format: date-time */
             updatedAt: string;
@@ -5697,6 +5814,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoTaskResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+        };
+    };
+    TodosController_listChristianHolidays: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChristianHolidayListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+        };
+    };
+    TodosController_listHolidays: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicHolidayListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+        };
+    };
+    TodosController_listNameDays: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NameDayListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
+            };
+        };
+    };
+    TodosController_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderTodoTasksDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoTaskListResponseDto"];
                 };
             };
             401: {

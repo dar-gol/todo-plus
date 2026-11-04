@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { TodoTask } from './todo-api';
-import { todoCalendarMonthDays, todoCalendarTasksForDay } from './todo-calendar-model';
+import {
+  todoCalendarDueCount,
+  todoCalendarMonthDays,
+  todoCalendarReminderCount,
+  todoCalendarTasksForDay
+} from './todo-calendar-model';
 
 const baseTask: TodoTask = {
   completedAt: null,
@@ -13,6 +18,7 @@ const baseTask: TodoTask = {
   noteDocument: null,
   notes: null,
   reminders: [],
+  section: 'standard',
   scope: 'personal',
   title: 'Zadanie',
   updatedAt: '2026-10-01T08:00:00.000Z'
@@ -41,5 +47,16 @@ describe('Todo calendar model', () => {
     const completed = { ...baseTask, completedAt: '2026-11-04T12:00:00.000Z', dueAt: '2026-11-05T08:00:00.000Z' };
 
     expect(todoCalendarTasksForDay([completed], '2026-11-05')).toEqual([]);
+  });
+
+  it('counts due dates and every reminder separately', () => {
+    const tasks = [
+      { ...baseTask, id: 'due-and-reminders', dueAt: '2026-11-05T08:00:00.000Z', reminders: ['2026-11-05T07:00:00.000Z', '2026-11-05T07:30:00.000Z'] },
+      { ...baseTask, id: 'reminder-only', reminders: ['2026-11-05T12:00:00.000Z'] },
+      { ...baseTask, id: 'completed', completedAt: '2026-11-04T12:00:00.000Z', dueAt: '2026-11-05T09:00:00.000Z', reminders: ['2026-11-05T08:00:00.000Z'] }
+    ];
+
+    expect(todoCalendarDueCount(tasks, '2026-11-05')).toBe(1);
+    expect(todoCalendarReminderCount(tasks, '2026-11-05')).toBe(3);
   });
 });

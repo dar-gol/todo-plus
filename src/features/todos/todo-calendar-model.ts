@@ -27,8 +27,14 @@ export function todoCalendarTasksForDay(tasks: TodoTask[], dateKey: string): Tod
     .sort((left, right) => firstOccurrenceOnDay(left, dateKey) - firstOccurrenceOnDay(right, dateKey));
 }
 
-export function todoCalendarEventCount(tasks: TodoTask[], dateKey: string): number {
-  return todoCalendarTasksForDay(tasks, dateKey).length;
+export function todoCalendarDueCount(tasks: TodoTask[], dateKey: string): number {
+  return activeTasks(tasks).filter((task) => task.dueAt && todoCalendarDateKey(task.dueAt) === dateKey).length;
+}
+
+export function todoCalendarReminderCount(tasks: TodoTask[], dateKey: string): number {
+  return activeTasks(tasks).reduce((count, task) => (
+    count + task.reminders.filter((reminder) => todoCalendarDateKey(reminder) === dateKey).length
+  ), 0);
 }
 
 function todoTaskOccursOnDay(task: TodoTask, dateKey: string): boolean {
@@ -44,4 +50,8 @@ function firstOccurrenceOnDay(task: TodoTask, dateKey: string): number {
     .map((value) => new Date(value).getTime());
 
   return Math.min(...moments);
+}
+
+function activeTasks(tasks: TodoTask[]): TodoTask[] {
+  return tasks.filter((task) => !task.completedAt);
 }

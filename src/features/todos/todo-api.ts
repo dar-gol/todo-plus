@@ -20,6 +20,12 @@ export class TodoApi {
     return apiClient.request(`/todos/${taskId}`, { method: 'PATCH', body: JSON.stringify(input) });
   }
 
+  reorder(input: components['schemas']['ReorderTodoTasksDto']): Promise<TodoTask[]> {
+    return apiClient
+      .request<TodoTaskList>('/todos/order', { method: 'PATCH', body: JSON.stringify(input) })
+      .then(({ items }) => items);
+  }
+
   remove(taskId: string): Promise<void> {
     return apiClient.request(`/todos/${taskId}`, { method: 'DELETE' });
   }

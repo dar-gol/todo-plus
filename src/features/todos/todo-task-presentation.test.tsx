@@ -14,6 +14,7 @@ const task = {
   id: 'task-1',
   notes: 'Gabinet na drugim piętrze.',
   reminders: ['2026-11-04T18:30:00.000Z'],
+  section: 'standard' as const,
   scope: 'family' as const,
   title: 'Umówić wizytę',
   updatedAt: '2026-10-28T10:15:00.000Z'
