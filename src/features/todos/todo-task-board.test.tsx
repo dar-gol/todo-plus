@@ -15,6 +15,7 @@ function task(id: string, title: string, section: TodoTask['section']): TodoTask
     completedAt: null,
     createdAt: '2026-11-03T09:00:00.000Z',
     createdByName: 'Ada',
+    createdByColor: 'blue',
     createdByUserId: 'user-1',
     description: null,
     dueAt: null,

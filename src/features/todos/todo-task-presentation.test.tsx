@@ -8,6 +8,7 @@ const task = {
   completedAt: null,
   createdAt: '2026-10-28T10:15:00.000Z',
   createdByName: 'Ada',
+  createdByColor: 'blue' as const,
   createdByUserId: 'user-1',
   description: 'Zabrać ze sobą książeczkę zdrowia.',
   dueAt: '2026-11-05T08:00:00.000Z',

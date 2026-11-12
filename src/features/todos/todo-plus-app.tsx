@@ -1,10 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle2, ListTodo, LogOut, Plus, RefreshCw, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CalendarDays, CheckCircle2, ListTodo, LogOut, Plus, RefreshCw, Settings, ShoppingBasket, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuthScreen } from '@/features/auth/auth-screen';
 import { authApi } from '@/features/auth/auth-api';
+import type { AuthUserProfile } from '@/features/auth/auth-user-profile';
 import { householdApi } from '@/features/households/household-api';
 import { PushBanner } from '@/features/push/push-banner';
 import { christianHolidayApi } from './christian-holiday-api';
@@ -16,20 +17,34 @@ import { todoApi, TodoScope } from './todo-api';
 import { TodoTaskDetails } from './todo-task-details';
 import { TodoTaskBoard } from './todo-task-board';
 import { TodoTaskItem } from './todo-task-item';
-import type { TodoTask } from './todo-api';
+import type { TodoDeleteMode, TodoTask } from './todo-api';
+import type { TodoDefaultView } from './todo-default-view';
+import { TodoRecurrenceDeleteDialog } from './todo-recurrence-delete-dialog';
+import { TodoSettingsDialog } from './todo-settings-dialog';
+import { todoViewPreferences } from './todo-view-preferences';
+import { TodoShoppingList } from '@/features/shopping/todo-shopping-list';
 
 export function TodoPlusApp() {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUserProfile | null>(null);
   const [scope, setScope] = useState<TodoScope>('family');
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(() => todoViewPreferences.load() === 'calendar');
+  const [shoppingOpen, setShoppingOpen] = useState(false);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorDate, setEditorDate] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [defaultView, setDefaultView] = useState<TodoDefaultView>(() => todoViewPreferences.load());
   const [selectedTask, setSelectedTask] = useState<TodoTask | null>(null);
+  const [recurringTaskToDelete, setRecurringTaskToDelete] = useState<TodoTask | null>(null);
   const queryClient = useQueryClient();
   useEffect(() => {
     let active = true;
-    authApi.restore().then((restored) => {
-      if (active) setSignedIn(restored);
+    authApi.restore().then((profile) => {
+      if (active) {
+        setCurrentUser(profile);
+        setSignedIn(Boolean(profile));
+      }
     });
     return () => { active = false; };
   }, []);
@@ -37,12 +52,12 @@ export function TodoPlusApp() {
   const personalTasks = useQuery({
     queryKey: ['todos', 'personal'],
     queryFn: () => todoApi.list('personal'),
-    enabled: signedIn === true && (calendarOpen || scope === 'personal')
+    enabled: signedIn === true && (calendarOpen || (!shoppingOpen && scope === 'personal'))
   });
   const familyTasks = useQuery({
     queryKey: ['todos', 'family'],
     queryFn: () => todoApi.list('family'),
-    enabled: signedIn === true && (calendarOpen || scope === 'family')
+    enabled: signedIn === true && (calendarOpen || (!shoppingOpen && scope === 'family'))
   });
   const publicHolidays = useQuery({
     queryKey: ['public-holidays', 'PL', calendarYear],
@@ -68,8 +83,10 @@ export function TodoPlusApp() {
     enabled: signedIn === true
   });
   const createTask = useMutation({
-    mutationFn: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; reminders: string[] }) => todoApi.create({ ...input, scope }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] })
+    mutationFn: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: TodoTask['recurrence']; reminders: string[] }) => todoApi.create({ ...input, scope }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['todos'] });
+    }
   });
   const updateTask = useMutation({
     mutationFn: ({ id, completed }: { id: string; completed: boolean }) => todoApi.update(id, { completed }),
@@ -81,31 +98,55 @@ export function TodoPlusApp() {
     onError: (_error, input) => queryClient.invalidateQueries({ queryKey: ['todos', input.scope] })
   });
   const editTask = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; reminders: string[] } }) => todoApi.update(id, input),
+    mutationFn: ({ id, input }: { id: string; input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: TodoTask['recurrence']; reminders: string[] } }) => todoApi.update(id, input),
     onSuccess: (updated) => {
       setSelectedTask(updated);
       return queryClient.invalidateQueries({ queryKey: ['todos'] });
     }
   });
   const removeTask = useMutation({
-    mutationFn: (id: string) => todoApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] })
+    mutationFn: ({ id, mode }: { id: string; mode: TodoDeleteMode }) => todoApi.remove(id, mode),
+    onSuccess: () => {
+      setRecurringTaskToDelete(null);
+      return queryClient.invalidateQueries({ queryKey: ['todos'] });
+    }
+  });
+  const updateCalendarColor = useMutation({
+    mutationFn: (color: AuthUserProfile['calendarColor']) => authApi.updateCalendarColor(color),
+    onSuccess: (profile) => {
+      setCurrentUser(profile);
+      void queryClient.invalidateQueries({ queryKey: ['todos'] });
+    }
   });
 
+  const calendarTasks = useMemo(
+    () => [...(personalTasks.data ?? []), ...(familyTasks.data ?? [])],
+    [personalTasks.data, familyTasks.data]
+  );
+
   if (signedIn === null) return <main className="loading-screen"><CheckCircle2 aria-hidden="true" /><span>Otwieram Todo Plus…</span></main>;
-  if (!signedIn) return <AuthScreen onSignedIn={() => setSignedIn(true)} />;
+  if (!signedIn || !currentUser) return <AuthScreen onSignedIn={() => { setCurrentUser(authApi.currentUser); setSignedIn(true); }} />;
 
   const tasks = scope === 'personal' ? personalTasks : familyTasks;
   const openTasks = tasks.data?.filter((task) => !task.completedAt) ?? [];
   const completedTasks = tasks.data?.filter((task) => task.completedAt) ?? [];
-  const calendarTasks = [...(personalTasks.data ?? []), ...(familyTasks.data ?? [])];
   const calendarError = personalTasks.error ?? familyTasks.error;
   const householdName = household.data?.name ?? 'Rodzina';
 
   async function logout() {
     await authApi.logout();
     queryClient.clear();
+    setCurrentUser(null);
     setSignedIn(false);
+  }
+
+  function requestTaskRemoval(task: TodoTask) {
+    if (task.recurrence) {
+      removeTask.reset();
+      setRecurringTaskToDelete(task);
+      return;
+    }
+    removeTask.mutate({ id: task.id, mode: 'series' });
   }
 
   return (
@@ -115,11 +156,12 @@ export function TodoPlusApp() {
         <div className="header-actions">
           <button
             className={`icon-button ${calendarOpen ? 'active' : ''}`}
-            onClick={() => setCalendarOpen((open) => !open)}
+            onClick={() => { setShoppingOpen(false); setCalendarOpen((open) => !open); }}
             aria-label={calendarOpen ? 'Wróć do list zadań' : 'Pokaż kalendarz'}
             aria-pressed={calendarOpen}
             title={calendarOpen ? 'Listy zadań' : 'Kalendarz'}
           >{calendarOpen ? <ListTodo aria-hidden="true" /> : <CalendarDays aria-hidden="true" />}</button>
+          <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="Otwórz ustawienia"><Settings aria-hidden="true" /></button>
           <button className="icon-button" onClick={logout} aria-label="Wyloguj się"><LogOut aria-hidden="true" /></button>
         </div>
       </header>
@@ -143,16 +185,21 @@ export function TodoPlusApp() {
               void nameDays.refetch();
             }}
             onVisibleYearChange={setCalendarYear}
+            onAddTask={(dateKey) => { setEditorDate(dateKey); setEditorOpen(true); }}
             onTaskOpen={setSelectedTask}
           />
         ) : (
           <>
             <nav className="list-tabs" aria-label="Wybierz listę">
-              <button className={scope === 'personal' ? 'active' : ''} onClick={() => setScope('personal')}><ListTodo aria-hidden="true" />Moja lista</button>
-              <button className={scope === 'family' ? 'active' : ''} onClick={() => setScope('family')}><Users aria-hidden="true" />{householdName}</button>
+              <button className={!shoppingOpen && scope === 'personal' ? 'active' : ''} onClick={() => { setShoppingOpen(false); setScope('personal'); }}><ListTodo aria-hidden="true" />Moja lista</button>
+              <button className={!shoppingOpen && scope === 'family' ? 'active' : ''} onClick={() => { setShoppingOpen(false); setScope('family'); }}><Users aria-hidden="true" />{householdName}</button>
+              <button className={shoppingOpen ? 'active' : ''} onClick={() => setShoppingOpen(true)}><ShoppingBasket aria-hidden="true" />Zakupy</button>
             </nav>
-
-            <section className="tasks-section" aria-labelledby="tasks-title">
+            {shoppingOpen ? (
+              household.data ? <TodoShoppingList householdId={household.data.id} householdName={householdName} /> : household.isError ? (
+                <div className="state-card error-state"><p>{household.error.message}</p><button onClick={() => household.refetch()}>Spróbuj ponownie</button></div>
+              ) : <div className="state-card">{household.isLoading ? 'Wczytuję wspólny dom…' : 'Najpierw utwórz dom w Kitchen Plus.'}</div>
+            ) : <section className="tasks-section" aria-labelledby="tasks-title">
               <div className="section-heading"><div><p className="eyebrow">{scope === 'family' ? 'WSPÓLNIE' : 'TYLKO DLA CIEBIE'}</p><h1 id="tasks-title">{scope === 'family' ? householdName : 'Moja lista'}</h1></div><span className="task-count">{openTasks.length}</span></div>
               {tasks.isLoading && <div className="state-card"><RefreshCw className="spin" aria-hidden="true" />Wczytuję zadania…</div>}
               {tasks.isError && <div className="state-card error-state"><p>{tasks.error.message}</p><button onClick={() => tasks.refetch()}>Spróbuj ponownie</button></div>}
@@ -164,22 +211,39 @@ export function TodoPlusApp() {
                     scope={scope}
                     pending={updateTask.isPending || removeTask.isPending || reorderTasks.isPending}
                     onToggle={(task) => updateTask.mutate({ id: task.id, completed: true })}
-                    onRemove={(task) => removeTask.mutate(task.id)}
+                    onRemove={requestTaskRemoval}
                     onOpen={setSelectedTask}
                     onReorder={(order) => reorderTasks.mutate({ scope, ...order })}
                   />
                   {reorderTasks.isError && <p className="task-order-error" role="alert">Nie udało się zapisać kolejności. Lista została odświeżona — spróbuj ponownie.</p>}
                 </>
               )}
-              {completedTasks.length > 0 && <details className="completed-group"><summary>Ukończone <span>{completedTasks.length}</span></summary><ul className="task-list">{completedTasks.map((task) => <TodoTaskItem key={task.id} task={task} pending={updateTask.isPending || removeTask.isPending} onToggle={() => updateTask.mutate({ id: task.id, completed: false })} onRemove={() => removeTask.mutate(task.id)} onOpen={() => setSelectedTask(task)} />)}</ul></details>}
-            </section>
+              {completedTasks.length > 0 && <details className="completed-group"><summary>Ukończone <span>{completedTasks.length}</span></summary><ul className="task-list">{completedTasks.map((task) => <TodoTaskItem key={task.id} task={task} pending={updateTask.isPending || removeTask.isPending} onToggle={() => updateTask.mutate({ id: task.id, completed: false })} onRemove={() => requestTaskRemoval(task)} onOpen={() => setSelectedTask(task)} />)}</ul></details>}
+            </section>}
           </>
         )}
       </div>
 
-      {!calendarOpen && <button className="add-button" onClick={() => setEditorOpen(true)}><Plus aria-hidden="true" /><span>Dodaj zadanie</span></button>}
-      <TodoEditor open={editorOpen} scope={scope} pending={createTask.isPending} onClose={() => setEditorOpen(false)} onCreate={(input) => createTask.mutateAsync(input).then(() => undefined)} />
+      {!calendarOpen && !shoppingOpen && <button className="add-button" onClick={() => { setEditorDate(null); setEditorOpen(true); }}><Plus aria-hidden="true" /><span>Dodaj zadanie</span></button>}
+      <TodoEditor key={editorOpen ? editorDate ?? 'list' : 'closed'} open={editorOpen} scope={scope} initialDate={editorDate ?? ''} pending={createTask.isPending} onClose={() => setEditorOpen(false)} onCreate={(input) => createTask.mutateAsync(input).then(() => undefined)} />
       {selectedTask && <TodoTaskDetails key={selectedTask.id} task={selectedTask} pending={editTask.isPending} onClose={() => setSelectedTask(null)} onUpdate={(input) => editTask.mutateAsync({ id: selectedTask.id, input })} />}
+      {recurringTaskToDelete && <TodoRecurrenceDeleteDialog
+        task={recurringTaskToDelete}
+        pending={removeTask.isPending}
+        error={removeTask.error}
+        onClose={() => { if (!removeTask.isPending) setRecurringTaskToDelete(null); }}
+        onDelete={(mode) => removeTask.mutate({ id: recurringTaskToDelete.id, mode })}
+      />}
+      <TodoSettingsDialog
+        open={settingsOpen}
+        defaultView={defaultView}
+        currentUser={currentUser}
+        colorPending={updateCalendarColor.isPending}
+        colorError={updateCalendarColor.error}
+        onClose={() => setSettingsOpen(false)}
+        onChange={(view) => { todoViewPreferences.save(view); setDefaultView(view); }}
+        onCreatorColorChange={(color) => updateCalendarColor.mutate(color)}
+      />
     </main>
   );
 }

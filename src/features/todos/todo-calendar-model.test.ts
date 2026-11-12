@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TodoTask } from './todo-api';
 import {
+  todoCalendarCreatorsForDay,
   todoCalendarDueCount,
   todoCalendarMonthDays,
   todoCalendarReminderCount,
@@ -11,6 +12,7 @@ const baseTask: TodoTask = {
   completedAt: null,
   createdAt: '2026-10-01T08:00:00.000Z',
   createdByName: 'Ada',
+  createdByColor: 'blue',
   createdByUserId: 'user-1',
   description: null,
   dueAt: null,
@@ -21,7 +23,7 @@ const baseTask: TodoTask = {
   section: 'standard',
   scope: 'personal',
   title: 'Zadanie',
-  updatedAt: '2026-10-01T08:00:00.000Z'
+    updatedAt: '2026-10-01T08:00:00.000Z'
 };
 
 describe('Todo calendar model', () => {
@@ -58,5 +60,26 @@ describe('Todo calendar model', () => {
 
     expect(todoCalendarDueCount(tasks, '2026-11-05')).toBe(1);
     expect(todoCalendarReminderCount(tasks, '2026-11-05')).toBe(3);
+  });
+
+  it('returns one marker per task creator for a calendar day', () => {
+    const tasks = [
+      { ...baseTask, id: 'ada-first', dueAt: '2026-11-05T08:00:00.000Z' },
+      { ...baseTask, id: 'ada-second', dueAt: '2026-11-05T10:00:00.000Z' },
+      { ...baseTask, id: 'jan', createdByUserId: 'user-2', createdByName: 'Jan', dueAt: '2026-11-05T12:00:00.000Z' }
+    ];
+
+    expect(todoCalendarCreatorsForDay(tasks, '2026-11-05').map((task) => task.createdByUserId))
+      .toEqual(['user-1', 'user-2']);
+  });
+
+  it('projects recurring tasks onto future calendar days', () => {
+    const tasks = [
+      { ...baseTask, dueAt: '2026-11-02T08:00:00.000Z', recurrence: 'weekly' as const }
+    ];
+
+    expect(todoCalendarTasksForDay(tasks, '2026-11-16').map((task) => task.id)).toEqual(['task-1']);
+    expect(todoCalendarDueCount(tasks, '2026-11-16')).toBe(1);
+    expect(todoCalendarDueCount(tasks, '2026-11-15')).toBe(0);
   });
 });

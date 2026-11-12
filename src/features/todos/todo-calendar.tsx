@@ -1,16 +1,21 @@
-import { Bell, CalendarDays, CalendarHeart, ChevronLeft, ChevronRight, Church, Clock3, RefreshCw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Bell, CalendarDays, CalendarHeart, ChevronLeft, ChevronRight, Church, Clock3, Plus, RefreshCw, Repeat2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import type { ChristianHoliday } from './christian-holiday';
 import type { NameDay } from './name-day';
 import type { PublicHoliday } from './public-holiday';
 import type { TodoTask } from './todo-api';
 import {
   todoCalendarDateKey,
+  todoCalendarCreatorsForDay,
+  todoCalendarDueTimeForDay,
   todoCalendarDueCount,
   todoCalendarMonthDays,
   todoCalendarReminderCount,
+  todoCalendarReminderTimesForDay,
   todoCalendarTasksForDay
 } from './todo-calendar-model';
+import { todoRecurrenceLabel } from './todo-recurrence-label';
+import { todoCreatorColorCss } from './todo-creator-color-options';
 
 const weekdayLabels = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
 
@@ -26,6 +31,7 @@ export function TodoCalendar({
   onRetry,
   onObservancesRetry,
   onVisibleYearChange,
+  onAddTask,
   onTaskOpen
 }: {
   tasks: TodoTask[];
@@ -39,12 +45,14 @@ export function TodoCalendar({
   onRetry: () => void;
   onObservancesRetry?: () => void;
   onVisibleYearChange?: (year: number) => void;
+  onAddTask?: (dateKey: string) => void;
   onTaskOpen: (task: TodoTask) => void;
 }) {
   const today = useMemo(() => new Date(), []);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1, 12));
   const [selectedDateKey, setSelectedDateKey] = useState(() => todoCalendarDateKey(today));
   const [showAllNameDays, setShowAllNameDays] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const days = todoCalendarMonthDays(visibleMonth);
   const selectedTasks = todoCalendarTasksForDay(tasks, selectedDateKey);
   const selectedHoliday = holidays.find((holiday) => holiday.date === selectedDateKey);
@@ -68,6 +76,16 @@ export function TodoCalendar({
     setShowAllNameDays(false);
   }
 
+  function finishSwipe(x: number, y: number) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const horizontalDistance = x - start.x;
+    const verticalDistance = y - start.y;
+    if (Math.abs(horizontalDistance) < 50 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
+    moveMonth(horizontalDistance < 0 ? 1 : -1);
+  }
+
   if (loading) return <div className="state-card"><RefreshCw className="spin" aria-hidden="true" />Wczytuję kalendarz…</div>;
   if (error) return <div className="state-card error-state"><p>{error.message}</p><button onClick={onRetry}>Spróbuj ponownie</button></div>;
 
@@ -85,7 +103,17 @@ export function TodoCalendar({
         </div>
       </div>
 
-      <div className="calendar-card">
+      <div
+        className="calendar-card"
+        onTouchStart={(event) => {
+          const touch = event.changedTouches[0];
+          touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+        }}
+        onTouchEnd={(event) => {
+          const touch = event.changedTouches[0];
+          if (touch) finishSwipe(touch.clientX, touch.clientY);
+        }}
+      >
         <div className="calendar-weekdays" aria-hidden="true">
           {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
         </div>
@@ -94,6 +122,7 @@ export function TodoCalendar({
             const dateKey = todoCalendarDateKey(day);
             const dueCount = todoCalendarDueCount(tasks, dateKey);
             const reminderCount = todoCalendarReminderCount(tasks, dateKey);
+            const taskCreators = todoCalendarCreatorsForDay(tasks, dateKey);
             const holiday = holidays.find((item) => item.date === dateKey);
             const christianCelebrations = christianHolidays
               .filter((item) => item.date === dateKey)
@@ -108,13 +137,23 @@ export function TodoCalendar({
                 key={dateKey}
                 className={`calendar-day${outsideMonth ? ' outside-month' : ''}${selected ? ' selected' : ''}${isToday ? ' today' : ''}${holiday || christianCelebrations.length ? ' holiday' : ''}`}
                 onClick={() => selectDate(dateKey)}
-                aria-label={calendarDayLabel(dateLabel, dueCount, reminderCount, holiday?.name, christianCelebrations, nameDay?.names)}
+                aria-label={calendarDayLabel(dateLabel, dueCount, reminderCount, taskCreators.map((task) => task.createdByName?.trim() || 'osobę bez nazwy'), holiday?.name, christianCelebrations, nameDay?.names)}
                 aria-pressed={selected}
               >
                 <span>{day.getDate()}</span>
-                {(holiday || christianCelebrations.length > 0) && <i className="calendar-holiday-marker" aria-hidden="true" />}
-                {dueCount > 0 && <small className="calendar-due-count" title={`${dueCount} ${dueCount === 1 ? 'termin' : 'terminy'}`} aria-hidden="true">{dueCount}</small>}
-                {reminderCount > 0 && <small className="calendar-reminder-count" title={`${reminderCount} ${reminderCount === 1 ? 'przypomnienie' : 'przypomnienia'}`} aria-hidden="true">{reminderCount}</small>}
+                {(dueCount > 0 || reminderCount > 0 || holiday || christianCelebrations.length > 0) && (
+                  <span className="calendar-day-markers" aria-hidden="true">
+                    {taskCreators.map((task) => (
+                      <i
+                        key={task.createdByUserId}
+                        className="creator"
+                        style={{ backgroundColor: todoCreatorColorCss(task.createdByColor) }}
+                      />
+                    ))}
+                    {reminderCount > 0 && <i className="reminder" />}
+                    {(holiday || christianCelebrations.length > 0) && <i className="holiday" />}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -142,6 +181,7 @@ export function TodoCalendar({
               </div>
             )}
           </div>
+          <button className="calendar-add-button" onClick={() => onAddTask?.(selectedDateKey)}><Plus aria-hidden="true" /><span>Dodaj</span></button>
         </div>
         {observancesLoading && <p className="calendar-holidays-status">Wczytuję święta i imieniny…</p>}
         {observancesError && (
@@ -175,8 +215,9 @@ export function TodoCalendar({
                     <span className={`scope-pill ${task.scope}`}>{task.scope === 'personal' ? 'Moja lista' : 'Rodzina'}</span>
                   </div>
                   <div className="calendar-task-moments">
-                    {task.dueAt && todoCalendarDateKey(task.dueAt) === selectedDateKey && <span><Clock3 aria-hidden="true" />Termin {formatTime(task.dueAt)}</span>}
-                    {task.reminders.filter((reminder) => todoCalendarDateKey(reminder) === selectedDateKey).map((reminder) => <span key={reminder}><Bell aria-hidden="true" />Przypomnienie {formatTime(reminder)}</span>)}
+                    {todoCalendarDueTimeForDay(task, selectedDateKey) && <span><Clock3 aria-hidden="true" />Termin {formatTime(todoCalendarDueTimeForDay(task, selectedDateKey)!)}</span>}
+                    {todoCalendarReminderTimesForDay(task, selectedDateKey).map((reminder) => <span key={reminder}><Bell aria-hidden="true" />Przypomnienie {formatTime(reminder)}</span>)}
+                    {task.recurrence && <span><Repeat2 aria-hidden="true" />{todoRecurrenceLabel(task.recurrence)}</span>}
                   </div>
                 </button>
               </li>
@@ -223,6 +264,7 @@ function calendarDayLabel(
   dateLabel: string,
   dueCount: number,
   reminderCount: number,
+  creatorNames: string[],
   holidayName: string | undefined,
   christianHolidays: ChristianHoliday[],
   names: string[] | undefined
@@ -231,6 +273,7 @@ function calendarDayLabel(
     ? 'bez terminów i przypomnień'
     : `terminy: ${dueCount}, przypomnienia: ${reminderCount}`;
   const details = [
+    creatorNames.length ? `zadania dodane przez: ${creatorNames.join(', ')}` : null,
     holidayName ? `święto ustawowe: ${holidayName}` : null,
     ...christianHolidays.map((holiday) => `święto chrześcijańskie: ${holiday.name}`),
     names?.length ? `imieniny: ${names.join(', ')}` : null

@@ -17,6 +17,7 @@ function taskForToday(id: string, scope: TodoTask['scope']): TodoTask {
     completedAt: null,
     createdAt: dueAt,
     createdByName: 'Ada',
+    createdByColor: 'purple',
     createdByUserId: 'user-1',
     description: null,
     dueAt,
@@ -64,7 +65,7 @@ describe('TodoCalendar', () => {
     expect(screen.getByRole('button', { name: 'Następny miesiąc' })).toBeTruthy();
   });
 
-  it('presents due dates and reminders as separate day counters', () => {
+  it('presents creator and reminder colors as separate strips below the day number', () => {
     const task = taskForToday('task-with-reminders', 'personal');
     task.reminders = [
       new Date(new Date(task.dueAt!).getTime() - 60 * 60 * 1000).toISOString(),
@@ -73,8 +74,11 @@ describe('TodoCalendar', () => {
     const { container } = render(<TodoCalendar tasks={[task]} loading={false} error={null} onRetry={vi.fn()} onTaskOpen={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: /terminy: 1, przypomnienia: 2/ })).toBeTruthy();
-    expect(container.querySelector('.calendar-due-count')?.textContent).toBe('1');
-    expect(container.querySelector('.calendar-reminder-count')?.textContent).toBe('2');
+    expect((container.querySelector('.calendar-day-markers .creator') as HTMLElement).style.backgroundColor)
+      .toBe('rgb(124, 58, 237)');
+    expect(container.querySelector('.calendar-day-markers .reminder')).toBeTruthy();
+    expect(container.querySelector('.calendar-due-count')).toBeNull();
+    expect(container.querySelector('.calendar-reminder-count')).toBeNull();
   });
 
   it('shows a public holiday separately from tasks and includes it in the day label', () => {
@@ -111,8 +115,7 @@ describe('TodoCalendar', () => {
     expect(screen.getByText('Niedziela Palmowa')).toBeTruthy();
     expect(screen.getByText('Imieniny: Amelia, Jan')).toBeTruthy();
     expect(screen.getByRole('button', { name: /święto chrześcijańskie: Niedziela Palmowa, imieniny: Amelia, Jan/ })).toBeTruthy();
-    expect(container.querySelectorAll('.calendar-holiday-marker')).toHaveLength(1);
-    expect(container.querySelector('.calendar-christian-marker')).toBeNull();
+    expect(container.querySelectorAll('.calendar-day-markers .holiday')).toHaveLength(1);
   });
 
   it('shows two name days first and expands the remaining names on request', () => {
@@ -161,8 +164,31 @@ describe('TodoCalendar', () => {
     expect(screen.getByText('Święto ustawowe')).toBeTruthy();
     expect(screen.queryByText('Święto chrześcijańskie')).toBeNull();
     expect(screen.getAllByText('Wszystkich Świętych')).toHaveLength(1);
-    expect(container.querySelectorAll('.calendar-holiday-marker')).toHaveLength(1);
+    expect(container.querySelectorAll('.calendar-day-markers .holiday')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /święto ustawowe: Wszystkich Świętych/ }).getAttribute('aria-label'))
       .not.toContain('święto chrześcijańskie');
+  });
+
+  it('adds a task with the currently selected calendar date', () => {
+    const onAddTask = vi.fn();
+    render(<TodoCalendar tasks={[]} loading={false} error={null} onRetry={vi.fn()} onAddTask={onAddTask} onTaskOpen={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj' }));
+
+    const now = new Date();
+    const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+    expect(onAddTask).toHaveBeenCalledWith(today);
+  });
+
+  it('changes month after a horizontal touch swipe', () => {
+    const onVisibleYearChange = vi.fn();
+    const { container } = render(<TodoCalendar tasks={[]} loading={false} error={null} onRetry={vi.fn()} onVisibleYearChange={onVisibleYearChange} onTaskOpen={vi.fn()} />);
+    const card = container.querySelector('.calendar-card')!;
+    const currentMonth = new Intl.DateTimeFormat('pl', { month: 'long', year: 'numeric' }).format(new Date());
+
+    fireEvent.touchStart(card, { changedTouches: [{ clientX: 220, clientY: 100 }] });
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 80, clientY: 108 }] });
+
+    expect(screen.queryByText(currentMonth)).toBeNull();
   });
 });

@@ -1,8 +1,10 @@
-import type { components } from '@/lib/api/generated';
+import type { components, operations } from '@/lib/api/generated';
 import { apiClient } from '@/lib/api/api-client';
 
 export type TodoTask = components['schemas']['TodoTaskResponseDto'];
 export type TodoScope = TodoTask['scope'];
+type TodoDeleteQuery = NonNullable<operations['TodosController_remove']['parameters']['query']>;
+export type TodoDeleteMode = NonNullable<TodoDeleteQuery['mode']>;
 type TodoTaskList = components['schemas']['TodoTaskListResponseDto'];
 
 /** Exposes the Todo Plus task contract without leaking transport into views. */
@@ -12,11 +14,11 @@ export class TodoApi {
     return result.items;
   }
 
-  create(input: { scope: TodoScope; title: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; reminders?: string[] }): Promise<TodoTask> {
+  create(input: { scope: TodoScope; title: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; recurrence?: TodoTask['recurrence']; reminders?: string[] }): Promise<TodoTask> {
     return apiClient.request('/todos', { method: 'POST', body: JSON.stringify(input) });
   }
 
-  update(taskId: string, input: { title?: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; reminders?: string[]; completed?: boolean }): Promise<TodoTask> {
+  update(taskId: string, input: { title?: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; recurrence?: TodoTask['recurrence']; reminders?: string[]; completed?: boolean }): Promise<TodoTask> {
     return apiClient.request(`/todos/${taskId}`, { method: 'PATCH', body: JSON.stringify(input) });
   }
 
@@ -26,8 +28,8 @@ export class TodoApi {
       .then(({ items }) => items);
   }
 
-  remove(taskId: string): Promise<void> {
-    return apiClient.request(`/todos/${taskId}`, { method: 'DELETE' });
+  remove(taskId: string, mode: TodoDeleteMode = 'series'): Promise<void> {
+    return apiClient.request(`/todos/${taskId}?mode=${mode}`, { method: 'DELETE' });
   }
 }
 

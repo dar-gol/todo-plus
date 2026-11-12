@@ -1471,6 +1471,11 @@ export interface components {
             } | null;
             /** @description Plain-text fallback derived from the note document. */
             notes?: string | null;
+            /**
+             * @description Calendar interval used to repeat a dated task.
+             * @enum {string|null}
+             */
+            recurrence?: "daily" | "weekly" | "monthly" | "yearly" | null;
             /** @description Custom moments when push reminders should be delivered. */
             reminders?: string[];
             /** @enum {string} */
@@ -1595,7 +1600,7 @@ export interface components {
              * @example catalog_source
              * @enum {string}
              */
-            source?: "nutrient_rule" | "category_rule" | "catalog_source" | "gemini_review" | "manual_override";
+            source?: "nutrient_rule" | "category_rule" | "catalog_source" | "ai_review" | "manual_override";
             /**
              * @example diet
              * @enum {string}
@@ -1676,7 +1681,7 @@ export interface components {
              * @example nutrient_rule
              * @enum {string}
              */
-            source: "nutrient_rule" | "category_rule" | "catalog_source" | "gemini_review" | "manual_override";
+            source: "nutrient_rule" | "category_rule" | "catalog_source" | "ai_review" | "manual_override";
             /**
              * @example diet
              * @enum {string}
@@ -1815,6 +1820,7 @@ export interface components {
             observedAt: string;
             priceGross: number;
             productId: string;
+            receiptId: string;
             store?: string | null;
             /** @enum {string} */
             unit: "g" | "ml" | "pcs";
@@ -2374,6 +2380,8 @@ export interface components {
             completedAt?: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** @enum {string} */
+            createdByColor: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red";
             createdByName?: string | null;
             createdByUserId: string;
             description?: string | null;
@@ -2384,6 +2392,8 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             notes?: string | null;
+            /** @enum {string|null} */
+            recurrence?: "daily" | "weekly" | "monthly" | "yearly" | null;
             /** @description Pending custom reminder moments. */
             reminders: string[];
             /** @enum {string} */
@@ -2413,8 +2423,13 @@ export interface components {
             reversedInventoryEventIds: string[];
         };
         UpdateCurrentUserProfileDto: {
+            /**
+             * @example purple
+             * @enum {string}
+             */
+            calendarColor?: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red";
             /** @example Ada */
-            name: string;
+            name?: string;
         };
         UpdateProductCatalogMatchDto: {
             catalogIngredientId: string | null;
@@ -2460,12 +2475,22 @@ export interface components {
             } | null;
             /** @description Plain-text fallback derived from the note document. */
             notes?: string | null;
+            /**
+             * @description Calendar interval used to repeat a dated task.
+             * @enum {string|null}
+             */
+            recurrence?: "daily" | "weekly" | "monthly" | "yearly" | null;
             /** @description Replaces all pending custom reminder moments. */
             reminders?: string[];
             /** @example Book a dentist appointment */
             title?: string;
         };
         UserProfileResponseDto: {
+            /**
+             * @example purple
+             * @enum {string}
+             */
+            calendarColor: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red";
             /** Format: email */
             email: string;
             id: string;
@@ -5994,7 +6019,9 @@ export interface operations {
     };
     TodosController_remove: {
         parameters: {
-            query?: never;
+            query?: {
+                mode?: "occurrence" | "series";
+            };
             header?: never;
             path: {
                 taskId: string;
@@ -6008,6 +6035,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponseDto"];
+                };
             };
             401: {
                 headers: {

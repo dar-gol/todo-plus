@@ -1,6 +1,6 @@
 'use client';
 
-import { BellRing, CalendarDays, Clock3, Eye, Pencil, StickyNote, UserRound, X } from 'lucide-react';
+import { BellRing, CalendarDays, Clock3, Eye, Pencil, Repeat2, StickyNote, UserRound, X } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { dateAtNine, dateInputValue, dateTimeAtIso, formatTodoDate } from './todo-date';
 import { parseTodoNoteDocumentField } from './todo-note-document';
@@ -8,12 +8,13 @@ import { TodoNoteEditor } from './todo-note-editor';
 import { TodoNotePreview } from './todo-note-preview';
 import { TodoReminderEditor } from './todo-reminder-editor';
 import type { TodoTask } from './todo-api';
+import { todoRecurrenceLabel } from './todo-recurrence-label';
 
 export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
   task: TodoTask;
   pending: boolean;
   onClose: () => void;
-  onUpdate: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; reminders: string[] }) => Promise<TodoTask>;
+  onUpdate: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: TodoTask['recurrence']; reminders: string[] }) => Promise<TodoTask>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
@@ -31,6 +32,11 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const date = String(data.get('date') ?? '');
+    const recurrence = String(data.get('recurrence') ?? '') as '' | NonNullable<TodoTask['recurrence']>;
+    if (recurrence && !date) {
+      setError('Wybierz termin, aby zadanie mogło się powtarzać.');
+      return;
+    }
     setError(null);
     try {
       const updated = await onUpdate({
@@ -39,6 +45,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         notes: String(data.get('notes') ?? '').trim() || null,
         noteDocument: parseTodoNoteDocumentField(data.get('noteDocument')),
         dueAt: date ? dateAtNine(date) : null,
+        recurrence: recurrence || null,
         reminders: data.getAll('reminders').map((value) => dateTimeAtIso(String(value)))
       });
       setCurrentTask(updated);
@@ -60,6 +67,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         notes: currentTask.notes ?? null,
         noteDocument,
         dueAt: currentTask.dueAt ?? null,
+        recurrence: currentTask.recurrence ?? null,
         reminders
       });
       setCurrentTask(updated);
@@ -94,6 +102,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
           {currentTask.description ? <p className="task-description">{currentTask.description}</p> : <p className="task-description muted-copy">Bez dodatkowego opisu.</p>}
           {(currentTask.dueAt || reminders.length > 0) && <dl className="task-facts">
             {currentTask.dueAt && <div><dt><CalendarDays aria-hidden="true" />Termin</dt><dd>{formatTodoDate(currentTask.dueAt)}</dd></div>}
+            {currentTask.recurrence && <div><dt><Repeat2 aria-hidden="true" />Powtarzanie</dt><dd>{todoRecurrenceLabel(currentTask.recurrence)}</dd></div>}
             {reminders.length > 0 && <div><dt><BellRing aria-hidden="true" />Przypomnienia</dt><dd><ul className="reminder-summary">{reminders.map((reminder) => <li key={reminder}>{formatTodoDate(reminder, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>)}</ul></dd></div>}
           </dl>}
           {(currentTask.noteDocument || currentTask.notes) && <section className="task-notes"><h3><StickyNote aria-hidden="true" />Notatka</h3><TodoNotePreview document={currentTask.noteDocument} legacyText={currentTask.notes} pending={pending || checklistPending} onTaskItemToggle={(document) => void toggleChecklistItem(document)} /></section>}
@@ -105,9 +114,10 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         </div>
       ) : (
         <form className="task-edit-form" onSubmit={submit}>
-          <label>Co jest do zrobienia?<input name="title" required autoFocus maxLength={200} defaultValue={currentTask.title} /></label>
+          <label>Co jest do zrobienia?<input name="title" required maxLength={200} defaultValue={currentTask.title} /></label>
           <label>Opis <span className="optional">widoczny na liście</span><textarea name="description" maxLength={500} rows={2} defaultValue={currentTask.description ?? ''} placeholder="Krótko opowiedz, o co chodzi" /></label>
           <label>Termin <span className="optional">opcjonalnie</span><input name="date" type="date" defaultValue={dateInputValue(currentTask.dueAt)} /></label>
+          <label>Powtarzanie <span className="optional">opcjonalnie</span><select name="recurrence" defaultValue={currentTask.recurrence ?? ''}><option value="">Nie powtarza się</option><option value="daily">Codziennie</option><option value="weekly">Co tydzień</option><option value="monthly">Co miesiąc</option><option value="yearly">Co rok</option></select></label>
           <TodoReminderEditor reminders={reminders} />
           <label>Notatka <span className="optional">tylko w podglądzie</span><TodoNoteEditor document={currentTask.noteDocument} legacyText={currentTask.notes} /></label>
           {error && <p className="error-message" role="alert">{error}</p>}

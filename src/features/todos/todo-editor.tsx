@@ -8,12 +8,13 @@ import { parseTodoNoteDocumentField } from './todo-note-document';
 import { TodoNoteEditor } from './todo-note-editor';
 import { TodoReminderEditor } from './todo-reminder-editor';
 
-export function TodoEditor({ open, scope, pending, onClose, onCreate }: {
+export function TodoEditor({ open, scope, initialDate = '', pending, onClose, onCreate }: {
   open: boolean;
   scope: TodoScope;
+  initialDate?: string;
   pending: boolean;
   onClose: () => void;
-  onCreate: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; reminders: string[] }) => Promise<void>;
+  onCreate: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: 'daily' | 'weekly' | 'monthly' | 'yearly' | null; reminders: string[] }) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,11 @@ export function TodoEditor({ open, scope, pending, onClose, onCreate }: {
     setError(null);
     try {
       const date = String(data.get('date') ?? '');
+      const recurrence = String(data.get('recurrence') ?? '') as '' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+      if (recurrence && !date) {
+        setError('Wybierz termin, aby zadanie mogło się powtarzać.');
+        return;
+      }
       const dueAt = date ? dateAtNine(date) : null;
       const reminders = data.getAll('reminders').map((value) => dateTimeAtIso(String(value)));
       await onCreate({
@@ -39,6 +45,7 @@ export function TodoEditor({ open, scope, pending, onClose, onCreate }: {
         notes: String(data.get('notes') ?? '').trim() || null,
         noteDocument: parseTodoNoteDocumentField(data.get('noteDocument')),
         dueAt,
+        recurrence: recurrence || null,
         reminders: reminders.length > 0 ? reminders : dueAt ? [dueAt] : []
       });
       form.reset();
@@ -58,7 +65,8 @@ export function TodoEditor({ open, scope, pending, onClose, onCreate }: {
         </div>
         <label>Co jest do zrobienia?<input name="title" required autoFocus maxLength={200} placeholder="Np. umówić wizytę" /></label>
         <label>Opis <span className="optional">widoczny na liście</span><textarea name="description" maxLength={500} rows={2} placeholder="Krótko opowiedz, o co chodzi" /></label>
-        <label>Termin <span className="optional">opcjonalnie</span><input name="date" type="date" /></label>
+        <label>Termin <span className="optional">opcjonalnie</span><input name="date" type="date" defaultValue={initialDate} /></label>
+        <label>Powtarzanie <span className="optional">opcjonalnie</span><select name="recurrence" defaultValue=""><option value="">Nie powtarza się</option><option value="daily">Codziennie</option><option value="weekly">Co tydzień</option><option value="monthly">Co miesiąc</option><option value="yearly">Co rok</option></select></label>
         <TodoReminderEditor key={noteEditorKey} />
         <label>Notatka <span className="optional">tylko w podglądzie</span><TodoNoteEditor key={noteEditorKey} /></label>
         {error && <p className="error-message" role="alert">{error}</p>}

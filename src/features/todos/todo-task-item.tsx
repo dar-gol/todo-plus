@@ -1,6 +1,7 @@
 import type { CSSProperties, HTMLAttributes, KeyboardEventHandler, MouseEventHandler, TouchEventHandler } from 'react';
-import { CalendarDays, Trash2 } from 'lucide-react';
+import { CalendarDays, Repeat2, Trash2 } from 'lucide-react';
 import type { TodoTask } from './todo-api';
+import { todoRecurrenceLabel } from './todo-recurrence-label';
 
 export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown, onDragMouseDown, onDragTouchStart, dragging = false, itemRef, style, onToggle, onRemove, onOpen }: {
   task: TodoTask;
@@ -40,6 +41,7 @@ export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown,
         {task.description && <p>{task.description}</p>}
         <div className="task-meta">
           {task.dueAt && <span><CalendarDays aria-hidden="true" />{new Intl.DateTimeFormat('pl', { day: 'numeric', month: 'short' }).format(new Date(task.dueAt))}</span>}
+          {task.recurrence && <span><Repeat2 aria-hidden="true" />{todoRecurrenceLabel(task.recurrence)}</span>}
           {task.scope === 'family' && task.createdByName && <span>od {task.createdByName}</span>}
         </div>
       </button>
