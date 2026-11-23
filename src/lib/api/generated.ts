@@ -1522,7 +1522,7 @@ export interface components {
             type: components["schemas"]["HouseholdActivityType"];
         };
         /** @enum {string} */
-        HouseholdActivityType: "inventory_added" | "shopping_item_added" | "shopping_item_checked" | "shopping_completed" | "recipe_created" | "recipe_cooked";
+        HouseholdActivityType: "inventory_added" | "shopping_item_added" | "shopping_item_checked" | "shopping_completed" | "recipe_created" | "recipe_cooked" | "todo_task_created";
         HouseholdMemberResponseDto: {
             email: string;
             id: string;

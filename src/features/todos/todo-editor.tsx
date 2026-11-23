@@ -3,22 +3,24 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TodoScope } from './todo-api';
-import { dateAtNine, dateTimeAtIso } from './todo-date';
+import { dateTimeAtIso } from './todo-date';
+import { TodoMoreFields } from './todo-more-fields';
 import { parseTodoNoteDocumentField } from './todo-note-document';
-import { TodoNoteEditor } from './todo-note-editor';
-import { TodoReminderEditor } from './todo-reminder-editor';
+import { TodoScheduleFields } from './todo-schedule-fields';
 
-export function TodoEditor({ open, scope, initialDate = '', pending, onClose, onCreate }: {
+export function TodoEditor({ open, scope, allowScopeSelection = false, initialDate = '', pending, onClose, onCreate }: {
   open: boolean;
   scope: TodoScope;
+  allowScopeSelection?: boolean;
   initialDate?: string;
   pending: boolean;
   onClose: () => void;
-  onCreate: (input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: 'daily' | 'weekly' | 'monthly' | 'yearly' | null; reminders: string[] }) => Promise<void>;
+  onCreate: (input: { scope: TodoScope; title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: 'daily' | 'weekly' | 'monthly' | 'yearly' | null; reminders: string[] }) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [noteEditorKey, setNoteEditorKey] = useState(0);
+  const [selectedScope, setSelectedScope] = useState(scope);
 
   useEffect(() => {
     if (open && !dialog.current?.open) dialog.current?.showModal();
@@ -31,22 +33,23 @@ export function TodoEditor({ open, scope, initialDate = '', pending, onClose, on
     const data = new FormData(form);
     setError(null);
     try {
-      const date = String(data.get('date') ?? '');
+      const dueAtValue = String(data.get('dueAt') ?? '');
       const recurrence = String(data.get('recurrence') ?? '') as '' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-      if (recurrence && !date) {
+      if (recurrence && !dueAtValue) {
         setError('Wybierz termin, aby zadanie mogło się powtarzać.');
         return;
       }
-      const dueAt = date ? dateAtNine(date) : null;
+      const dueAt = dueAtValue ? dateTimeAtIso(dueAtValue) : null;
       const reminders = data.getAll('reminders').map((value) => dateTimeAtIso(String(value)));
       await onCreate({
+        scope: selectedScope,
         title: String(data.get('title')),
         description: String(data.get('description') ?? '').trim() || null,
         notes: String(data.get('notes') ?? '').trim() || null,
         noteDocument: parseTodoNoteDocumentField(data.get('noteDocument')),
         dueAt,
         recurrence: recurrence || null,
-        reminders: reminders.length > 0 ? reminders : dueAt ? [dueAt] : []
+        reminders
       });
       form.reset();
       setNoteEditorKey((current) => current + 1);
@@ -60,15 +63,19 @@ export function TodoEditor({ open, scope, initialDate = '', pending, onClose, on
     <dialog ref={dialog} className="task-dialog" onCancel={onClose} onClose={onClose}>
       <form onSubmit={submit}>
         <div className="dialog-heading">
-          <div><p className="eyebrow">{scope === 'family' ? 'RODZINA' : 'MOJA LISTA'}</p><h2>Nowe zadanie</h2></div>
+          <div><p className="eyebrow">{selectedScope === 'family' ? 'RODZINA' : 'MOJA LISTA'}</p><h2>Nowe zadanie</h2></div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><X aria-hidden="true" /></button>
         </div>
+        {allowScopeSelection && (
+          <fieldset className="task-scope-picker">
+            <legend>Dodaj do</legend>
+            <label><input type="radio" name="scope" value="family" checked={selectedScope === 'family'} onChange={() => setSelectedScope('family')} /><span>Rodzina</span></label>
+            <label><input type="radio" name="scope" value="personal" checked={selectedScope === 'personal'} onChange={() => setSelectedScope('personal')} /><span>Moja lista</span></label>
+          </fieldset>
+        )}
         <label>Co jest do zrobienia?<input name="title" required autoFocus maxLength={200} placeholder="Np. umówić wizytę" /></label>
-        <label>Opis <span className="optional">widoczny na liście</span><textarea name="description" maxLength={500} rows={2} placeholder="Krótko opowiedz, o co chodzi" /></label>
-        <label>Termin <span className="optional">opcjonalnie</span><input name="date" type="date" defaultValue={initialDate} /></label>
-        <label>Powtarzanie <span className="optional">opcjonalnie</span><select name="recurrence" defaultValue=""><option value="">Nie powtarza się</option><option value="daily">Codziennie</option><option value="weekly">Co tydzień</option><option value="monthly">Co miesiąc</option><option value="yearly">Co rok</option></select></label>
-        <TodoReminderEditor key={noteEditorKey} />
-        <label>Notatka <span className="optional">tylko w podglądzie</span><TodoNoteEditor key={noteEditorKey} /></label>
+        <TodoScheduleFields key={`schedule-${noteEditorKey}-${initialDate}`} initialDueAt={initialDate} />
+        <TodoMoreFields editorKey={noteEditorKey} />
         {error && <p className="error-message" role="alert">{error}</p>}
         <button className="primary-button" disabled={pending}>{pending ? 'Dodaję…' : 'Dodaj zadanie'}</button>
       </form>

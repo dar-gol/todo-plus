@@ -40,7 +40,7 @@ export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown,
         <strong>{task.title}</strong>
         {task.description && <p>{task.description}</p>}
         <div className="task-meta">
-          {task.dueAt && <span><CalendarDays aria-hidden="true" />{new Intl.DateTimeFormat('pl', { day: 'numeric', month: 'short' }).format(new Date(task.dueAt))}</span>}
+          {task.dueAt && <span><CalendarDays aria-hidden="true" />{new Intl.DateTimeFormat('pl', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(task.dueAt))}</span>}
           {task.recurrence && <span><Repeat2 aria-hidden="true" />{todoRecurrenceLabel(task.recurrence)}</span>}
           {task.scope === 'family' && task.createdByName && <span>od {task.createdByName}</span>}
         </div>

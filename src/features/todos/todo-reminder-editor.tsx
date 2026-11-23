@@ -25,7 +25,7 @@ export function TodoReminderEditor({ reminders = [] }: { reminders?: string[] })
 
   return (
     <fieldset className="reminder-editor">
-      <legend><BellPlus aria-hidden="true" />Przypomnienia <span className="optional">data i godzina</span></legend>
+      <legend><BellPlus aria-hidden="true" />Dodatkowe przypomnienia <span className="optional">data i godzina</span></legend>
       {values.length === 0 && <p>Dodaj przypomnienie, jeśli chcesz dostać powiadomienie przed terminem.</p>}
       <div className="reminder-rows">
         {values.map((value, index) => (

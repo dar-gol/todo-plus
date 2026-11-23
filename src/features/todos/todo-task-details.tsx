@@ -2,11 +2,11 @@
 
 import { BellRing, CalendarDays, Clock3, Eye, Pencil, Repeat2, StickyNote, UserRound, X } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { dateAtNine, dateInputValue, dateTimeAtIso, formatTodoDate } from './todo-date';
+import { dateTimeAtIso, formatTodoDate } from './todo-date';
+import { TodoMoreFields } from './todo-more-fields';
 import { parseTodoNoteDocumentField } from './todo-note-document';
-import { TodoNoteEditor } from './todo-note-editor';
 import { TodoNotePreview } from './todo-note-preview';
-import { TodoReminderEditor } from './todo-reminder-editor';
+import { TodoScheduleFields } from './todo-schedule-fields';
 import type { TodoTask } from './todo-api';
 import { todoRecurrenceLabel } from './todo-recurrence-label';
 
@@ -31,9 +31,9 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const date = String(data.get('date') ?? '');
+    const dueAtValue = String(data.get('dueAt') ?? '');
     const recurrence = String(data.get('recurrence') ?? '') as '' | NonNullable<TodoTask['recurrence']>;
-    if (recurrence && !date) {
+    if (recurrence && !dueAtValue) {
       setError('Wybierz termin, aby zadanie mogło się powtarzać.');
       return;
     }
@@ -44,7 +44,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         description: String(data.get('description') ?? '').trim() || null,
         notes: String(data.get('notes') ?? '').trim() || null,
         noteDocument: parseTodoNoteDocumentField(data.get('noteDocument')),
-        dueAt: date ? dateAtNine(date) : null,
+        dueAt: dueAtValue ? dateTimeAtIso(dueAtValue) : null,
         recurrence: recurrence || null,
         reminders: data.getAll('reminders').map((value) => dateTimeAtIso(String(value)))
       });
@@ -101,7 +101,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         <div className="task-preview">
           {currentTask.description ? <p className="task-description">{currentTask.description}</p> : <p className="task-description muted-copy">Bez dodatkowego opisu.</p>}
           {(currentTask.dueAt || reminders.length > 0) && <dl className="task-facts">
-            {currentTask.dueAt && <div><dt><CalendarDays aria-hidden="true" />Termin</dt><dd>{formatTodoDate(currentTask.dueAt)}</dd></div>}
+            {currentTask.dueAt && <div><dt><CalendarDays aria-hidden="true" />Termin</dt><dd>{formatTodoDate(currentTask.dueAt, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd></div>}
             {currentTask.recurrence && <div><dt><Repeat2 aria-hidden="true" />Powtarzanie</dt><dd>{todoRecurrenceLabel(currentTask.recurrence)}</dd></div>}
             {reminders.length > 0 && <div><dt><BellRing aria-hidden="true" />Przypomnienia</dt><dd><ul className="reminder-summary">{reminders.map((reminder) => <li key={reminder}>{formatTodoDate(reminder, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>)}</ul></dd></div>}
           </dl>}
@@ -115,11 +115,8 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
       ) : (
         <form className="task-edit-form" onSubmit={submit}>
           <label>Co jest do zrobienia?<input name="title" required maxLength={200} defaultValue={currentTask.title} /></label>
-          <label>Opis <span className="optional">widoczny na liście</span><textarea name="description" maxLength={500} rows={2} defaultValue={currentTask.description ?? ''} placeholder="Krótko opowiedz, o co chodzi" /></label>
-          <label>Termin <span className="optional">opcjonalnie</span><input name="date" type="date" defaultValue={dateInputValue(currentTask.dueAt)} /></label>
-          <label>Powtarzanie <span className="optional">opcjonalnie</span><select name="recurrence" defaultValue={currentTask.recurrence ?? ''}><option value="">Nie powtarza się</option><option value="daily">Codziennie</option><option value="weekly">Co tydzień</option><option value="monthly">Co miesiąc</option><option value="yearly">Co rok</option></select></label>
-          <TodoReminderEditor reminders={reminders} />
-          <label>Notatka <span className="optional">tylko w podglądzie</span><TodoNoteEditor document={currentTask.noteDocument} legacyText={currentTask.notes} /></label>
+          <TodoScheduleFields initialDueAt={currentTask.dueAt} initialRecurrence={currentTask.recurrence} reminders={reminders} />
+          <TodoMoreFields description={currentTask.description} noteDocument={currentTask.noteDocument} legacyNotes={currentTask.notes} />
           {error && <p className="error-message" role="alert">{error}</p>}
           <button className="primary-button" disabled={pending}>{pending ? 'Zapisuję…' : 'Zapisz zmiany'}</button>
         </form>

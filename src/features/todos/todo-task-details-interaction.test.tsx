@@ -39,6 +39,7 @@ describe('TodoTaskDetails editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edytuj zadanie' }));
 
     const title = screen.getByRole('textbox', { name: 'Co jest do zrobienia?' });
+    expect(screen.getByLabelText('Termin').getAttribute('type')).toBe('datetime-local');
     expect(title.getAttribute('autofocus')).toBeNull();
     expect(document.activeElement).not.toBe(title);
   });

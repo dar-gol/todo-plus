@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dateAtNine, dateTimeAtIso, dateTimeInputValue } from './todo-date';
+import { dateTimeAtIso, dateTimeInputValue, dueDateTimeInputValue } from './todo-date';
 
-describe('dateAtNine', () => {
-  it('schedules a date-only reminder at 09:00 in the browser time zone', () => {
-    const result = new Date(dateAtNine('2026-11-05'));
-    expect(result.getFullYear()).toBe(2026);
-    expect(result.getMonth()).toBe(10);
-    expect(result.getDate()).toBe(5);
-    expect(result.getHours()).toBe(9);
+describe('due date and time', () => {
+  it('adds a comfortable default hour to a date selected from the calendar', () => {
+    expect(dueDateTimeInputValue('2026-11-05')).toBe('2026-11-05T09:00');
   });
 });
 
