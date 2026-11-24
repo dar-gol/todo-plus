@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TodoTask } from './todo-api';
 import { TodoTaskBoard } from './todo-task-board';
+import { planTodoTaskOrder } from './todo-task-order-model';
 
 afterEach(() => {
   cleanup();
@@ -19,10 +20,12 @@ function task(id: string, title: string, section: TodoTask['section']): TodoTask
     createdByUserId: 'user-1',
     description: null,
     dueAt: null,
+    dueAtAlarmEnabled: false,
     id,
     noteDocument: null,
     notes: null,
     reminders: [],
+    alarmReminders: [],
     scope: 'personal',
     section,
     title,
@@ -32,13 +35,15 @@ function task(id: string, title: string, section: TodoTask['section']): TodoTask
 
 describe('TodoTaskBoard', () => {
   it('shows priority, regular, and deferred tasks in distinct ordered sections', () => {
+    const visible = [
+      task('pinned', 'Zapłacić rachunek', 'pinned'),
+      task('standard', 'Kupić pieczywo', 'standard'),
+      task('later', 'Przejrzeć szafkę', 'later')
+    ];
     render(
       <TodoTaskBoard
-        tasks={[
-          task('pinned', 'Zapłacić rachunek', 'pinned'),
-          task('standard', 'Kupić pieczywo', 'standard'),
-          task('later', 'Przejrzeć szafkę', 'later')
-        ]}
+        tasks={[...visible, task('hidden', 'Ukryte przez filtr', 'later')]}
+        visibleTasks={visible}
         scope="personal"
         pending={false}
         onToggle={vi.fn()}
@@ -48,9 +53,14 @@ describe('TodoTaskBoard', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: 'Najważniejsze' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Do zrobienia' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Na później' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Najważniejsze' })).toBeTruthy();
+    expect(screen.queryByText('Najważniejsze')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Do zrobienia' })).toBeTruthy();
+    expect(screen.queryByText('Do zrobienia')).toBeNull();
+    expect(screen.getByText('Na później').closest('summary')?.textContent).toBe('Na później 1');
+    fireEvent.click(screen.getByText('Na później'));
+    expect(screen.getByText('Przejrzeć szafkę')).toBeTruthy();
+    expect(screen.queryByText('Ukryte przez filtr')).toBeNull();
     expect(screen.queryByText('Maksymalnie 3')).toBeNull();
     expect(screen.queryByText('Mogą poczekać')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zmień priorytet zadania Zapłacić rachunek' })).toBeNull();
@@ -70,9 +80,9 @@ describe('TodoTaskBoard', () => {
       />
     );
 
-    expect(screen.queryByRole('heading', { name: 'Najważniejsze' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Do zrobienia' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Na później' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Najważniejsze' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Do zrobienia' })).toBeTruthy();
+    expect(screen.queryByText('Na później')).toBeNull();
   });
 
   it('restores and updates the collapsed later section preference', async () => {
@@ -90,8 +100,34 @@ describe('TodoTaskBoard', () => {
     );
 
     await waitFor(() => expect(screen.queryByText('Przejrzeć szafkę')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Rozwiń zadania na później' }));
+    fireEvent.click(screen.getByText('Na później'));
     await waitFor(() => expect(screen.getByText('Przejrzeć szafkę')).toBeTruthy());
     expect(window.localStorage.getItem('todo-plus:later-collapsed:personal:v1')).toBe('false');
+  });
+});
+
+describe('filtered task ordering', () => {
+  const pinned = task('p1', 'Ukryte ważne', 'pinned');
+  const hidden = task('s0', 'Ukryte zwykłe', 'standard');
+  const first = task('s1', 'Widoczne pierwsze', 'standard');
+  const last = task('s2', 'Widoczne ostatnie', 'standard');
+  const later = task('l1', 'Ukryte na później', 'later');
+  const tasks = [pinned, first, hidden, last, later];
+
+  it('keeps hidden slots while reordering visible tasks in the same section', () => {
+    expect(planTodoTaskOrder(tasks, [first, last], first.id, last.id)).toEqual({
+      pinnedTaskIds: ['p1'], standardTaskIds: ['s2', 's0', 's1'], laterTaskIds: ['l1']
+    });
+  });
+
+  it('includes every hidden task when moving into a section empty under the filter', () => {
+    expect(planTodoTaskOrder(tasks, [first, last], first.id, 'later')).toEqual({
+      pinnedTaskIds: ['p1'], standardTaskIds: ['s0', 's2'], laterTaskIds: ['l1', 's1']
+    });
+  });
+
+  it('counts filtered-out pinned tasks toward the limit', () => {
+    const all = [...tasks, task('p2', 'Drugie', 'pinned'), task('p3', 'Trzecie', 'pinned')];
+    expect(planTodoTaskOrder(all, [first, last], first.id, 'pinned')).toBeNull();
   });
 });

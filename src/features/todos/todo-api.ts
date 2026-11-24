@@ -14,11 +14,11 @@ export class TodoApi {
     return result.items;
   }
 
-  create(input: { scope: TodoScope; title: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; recurrence?: TodoTask['recurrence']; reminders?: string[] }): Promise<TodoTask> {
+  create(input: components['schemas']['CreateTodoTaskDto']): Promise<TodoTask> {
     return apiClient.request('/todos', { method: 'POST', body: JSON.stringify(input) });
   }
 
-  update(taskId: string, input: { title?: string; description?: string | null; notes?: string | null; noteDocument?: Record<string, unknown> | null; dueAt?: string | null; recurrence?: TodoTask['recurrence']; reminders?: string[]; completed?: boolean }): Promise<TodoTask> {
+  update(taskId: string, input: components['schemas']['UpdateTodoTaskDto']): Promise<TodoTask> {
     return apiClient.request(`/todos/${taskId}`, { method: 'PATCH', body: JSON.stringify(input) });
   }
 

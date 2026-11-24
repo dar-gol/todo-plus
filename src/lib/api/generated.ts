@@ -1462,9 +1462,13 @@ export interface components {
             unit: "g" | "ml" | "pcs";
         };
         CreateTodoTaskDto: {
+            /** @description Reminder moments that should request alarm-style sound and vibration. */
+            alarmReminders?: string[];
             description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
+            /** @description Requests alarm-style delivery for the task due date notification. */
+            dueAtAlarmEnabled?: boolean;
             /** @description Validated Tiptap JSON document. */
             noteDocument?: {
                 [key: string]: unknown;
@@ -2376,6 +2380,8 @@ export interface components {
             items: components["schemas"]["TodoTaskResponseDto"][];
         };
         TodoTaskResponseDto: {
+            /** @description Pending reminder moments with alarm-style delivery enabled. */
+            alarmReminders: string[];
             /** Format: date-time */
             completedAt?: string | null;
             /** Format: date-time */
@@ -2387,6 +2393,8 @@ export interface components {
             description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
+            /** @description Whether the task due date requests alarm-style delivery. */
+            dueAtAlarmEnabled: boolean;
             id: string;
             noteDocument?: {
                 [key: string]: unknown;
@@ -2465,10 +2473,14 @@ export interface components {
             version: number;
         };
         UpdateTodoTaskDto: {
+            /** @description Reminder moments that should request alarm-style sound and vibration. */
+            alarmReminders?: string[];
             completed?: boolean;
             description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
+            /** @description Requests alarm-style delivery for the task due date notification. */
+            dueAtAlarmEnabled?: boolean;
             /** @description Validated Tiptap JSON document. */
             noteDocument?: {
                 [key: string]: unknown;

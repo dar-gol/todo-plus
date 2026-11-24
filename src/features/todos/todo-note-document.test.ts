@@ -12,7 +12,7 @@ describe('todo note document', () => {
     });
   });
 
-  it('keeps supported formatting and removes unsupported marks and nodes', () => {
+  it('keeps supported formatting and safe links while removing unsupported marks and nodes', () => {
     const document = normalizeTodoNoteDocument({
       type: 'doc',
       content: [{
@@ -24,7 +24,8 @@ describe('todo note document', () => {
             { type: 'bold' },
             { type: 'textStyle', attrs: { color: '#2F7D5A' } },
             { type: 'highlight', attrs: { color: '#000000' } },
-            { type: 'link', attrs: { href: 'https://example.com' } }
+            { type: 'link', attrs: { href: 'https://example.com' } },
+            { type: 'link', attrs: { href: 'javascript:alert(1)' } }
           ]
         }]
       }, { type: 'image', attrs: { src: 'invalid' } }]
@@ -37,7 +38,35 @@ describe('todo note document', () => {
         content: [{
           type: 'text',
           text: 'Kolorowa treść',
-          marks: [{ type: 'bold' }, { type: 'textStyle', attrs: { color: '#2f7d5a' } }]
+          marks: [
+            { type: 'bold' },
+            { type: 'textStyle', attrs: { color: '#2f7d5a' } },
+            { type: 'link', attrs: { href: 'https://example.com/' } }
+          ]
+        }]
+      }]
+    });
+  });
+
+  it('keeps the starting number of an ordered list', () => {
+    expect(normalizeTodoNoteDocument({
+      type: 'doc',
+      content: [{
+        type: 'orderedList',
+        attrs: { start: 4 },
+        content: [{
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Czwarty' }] }]
+        }]
+      }]
+    })).toEqual({
+      type: 'doc',
+      content: [{
+        type: 'orderedList',
+        attrs: { start: 4 },
+        content: [{
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Czwarty' }] }]
         }]
       }]
     });

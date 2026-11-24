@@ -3,112 +3,105 @@
 import {
   closestCenter,
   DndContext,
-  DragEndEvent,
-  DragOverEvent,
-  DragStartEvent,
+  type DragEndEvent,
   KeyboardSensor,
+  MeasuringStrategy,
   MouseSensor,
+  pointerWithin,
   TouchSensor,
   useDroppable,
   useSensor,
   useSensors
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, Pin, TimerReset } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TodoTask } from './todo-api';
 import { TodoTaskItem } from './todo-task-item';
+import type { TodoTaskOrder } from './todo-task-order';
+import { groupTodoTasks, planTodoTaskOrder, todoTaskSections } from './todo-task-order-model';
 
-const sections = ['pinned', 'standard', 'later'] as const;
+const taskLaneCopy = {
+  pinned: { title: 'Najważniejsze', empty: 'Upuść tutaj najważniejsze zadanie.' },
+  standard: { title: 'Do zrobienia', empty: 'Upuść tutaj zadanie do zrobienia.' },
+  later: { title: 'Na później', empty: 'Upuść tutaj zadanie na później.' }
+};
 
-function groupTasks(tasks: TodoTask[]) {
-  return {
-    pinned: tasks.filter((task) => task.section === 'pinned'),
-    standard: tasks.filter((task) => task.section === 'standard'),
-    later: tasks.filter((task) => task.section === 'later')
-  };
-}
-
-function findSection(groups: ReturnType<typeof groupTasks>, id: string) {
-  return sections.find((section) => section === id || groups[section].some((task) => task.id === id));
-}
-
-function TaskLane({ section, tasks, pending, collapsed, dragging, onCollapsedChange, onToggle, onRemove, onOpen }: {
-  section: (typeof sections)[number];
+function TaskLane({ section, tasks, pending, collapsed, dragging, canDrop, onCollapsedChange, onToggle, onRemove, onOpen }: {
+  section: TodoTask['section'];
   tasks: TodoTask[];
   pending: boolean;
   collapsed: boolean;
   dragging: boolean;
+  canDrop: boolean;
   onCollapsedChange: () => void;
   onToggle: (task: TodoTask) => void;
   onRemove: (task: TodoTask) => void;
   onOpen: (task: TodoTask) => void;
 }) {
-  const { isOver, setNodeRef } = useDroppable({ id: section });
-  const copy = {
-    pinned: { title: 'Najważniejsze', empty: 'Upuść tutaj najważniejsze zadanie.', icon: <Pin aria-hidden="true" /> },
-    standard: { title: 'Do zrobienia', empty: 'Upuść tutaj zadanie do zrobienia.', icon: null },
-    later: { title: 'Na później', empty: 'Upuść tutaj zadanie na później.', icon: <TimerReset aria-hidden="true" /> }
-  }[section];
+  const { isOver, setNodeRef } = useDroppable({ id: section, disabled: tasks.length > 0 || !canDrop });
+  const copy = taskLaneCopy[section];
   const contentCollapsed = collapsed && !dragging;
+  const className = `task-lane task-lane-${section}`;
+  const content = !contentCollapsed && (
+    <div ref={setNodeRef} className={`task-lane-dropzone${isOver ? ' task-lane-over' : ''}`}>
+      <SortableContext items={tasks.map(({ id }) => id)} strategy={rectSortingStrategy}>
+        {tasks.length > 0 ? (
+          <ul className="task-list">
+            {tasks.map((task) => (
+              <SortableTask
+                key={task.id}
+                task={task}
+                pending={pending}
+              canDrop={canDrop}
+                onToggle={() => onToggle(task)}
+                onRemove={() => onRemove(task)}
+                onOpen={() => onOpen(task)}
+              />
+            ))}
+          </ul>
+        ) : <p className="task-lane-empty">{canDrop ? copy.empty : 'Są już trzy najważniejsze zadania.'}</p>}
+      </SortableContext>
+    </div>
+  );
+
+  if (section === 'later') {
+    return (
+      <details className={className} open={!contentCollapsed}>
+        <summary onClick={(event) => {
+          event.preventDefault();
+          if (!dragging) onCollapsedChange();
+        }}>
+          {copy.title} <span>{tasks.length}</span>
+        </summary>
+        {content}
+      </details>
+    );
+  }
 
   return (
-    <section className={`task-lane task-lane-${section} ${contentCollapsed ? 'task-lane-collapsed' : ''} ${isOver ? 'task-lane-over' : ''}`} aria-labelledby={`task-lane-${section}`}>
-      <div className="task-lane-heading">
-        <div>{copy.icon}<h2 id={`task-lane-${section}`}>{copy.title}</h2></div>
-        {section === 'later' && (
-          <button
-            type="button"
-            className="task-lane-collapse"
-            onClick={onCollapsedChange}
-            aria-expanded={!contentCollapsed}
-            aria-controls="task-lane-later-content"
-            aria-label={contentCollapsed ? 'Rozwiń zadania na później' : 'Zwiń zadania na później'}
-          >
-            <ChevronDown aria-hidden="true" />
-          </button>
-        )}
-      </div>
-      {!contentCollapsed && <div ref={setNodeRef} id={section === 'later' ? 'task-lane-later-content' : undefined} className="task-lane-dropzone">
-        <SortableContext items={tasks.map(({ id }) => id)} strategy={rectSortingStrategy}>
-          {tasks.length > 0 ? (
-            <ul className="task-list">
-              {tasks.map((task) => (
-                <SortableTask
-                  key={task.id}
-                  task={task}
-                  pending={pending}
-                  onToggle={() => onToggle(task)}
-                  onRemove={() => onRemove(task)}
-                  onOpen={() => onOpen(task)}
-                />
-              ))}
-            </ul>
-          ) : <p className="task-lane-empty">{copy.empty}</p>}
-        </SortableContext>
-      </div>}
+    <section className={className} aria-label={copy.title}>
+      {content}
     </section>
   );
 }
 
-function SortableTask({ task, pending, onToggle, onRemove, onOpen }: {
+function SortableTask({ task, pending, canDrop, onToggle, onRemove, onOpen }: {
   task: TodoTask;
   pending: boolean;
+  canDrop: boolean;
   onToggle: () => void;
   onRemove: () => void;
   onOpen: () => void;
 }) {
-  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, isDragging, isOver, listeners, setNodeRef, transform, transition } = useSortable({
     id: task.id,
-    disabled: pending,
-    data: { section: task.section }
+    disabled: { draggable: pending, droppable: !canDrop }
   });
 
   return (
@@ -116,7 +109,8 @@ function SortableTask({ task, pending, onToggle, onRemove, onOpen }: {
       task={task}
       pending={pending}
       dragging={isDragging}
-      itemRef={(node) => setNodeRef(node)}
+      dropTarget={isOver && !isDragging}
+      itemRef={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       sortableAttributes={attributes}
       onDragKeyDown={(event) => listeners?.onKeyDown?.(event)}
@@ -130,20 +124,21 @@ function SortableTask({ task, pending, onToggle, onRemove, onOpen }: {
 }
 
 /** Owns accessible drag-and-drop ordering across pinned, standard, and deferred task sections. */
-export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpen, onReorder }: {
+export function TodoTaskBoard({ tasks, visibleTasks = tasks, scope, pending, onToggle, onRemove, onOpen, onReorder }: {
   tasks: TodoTask[];
+  visibleTasks?: TodoTask[];
   scope: TodoTask['scope'];
   pending: boolean;
   onToggle: (task: TodoTask) => void;
   onRemove: (task: TodoTask) => void;
   onOpen: (task: TodoTask) => void;
-  onReorder: (order: { pinnedTaskIds: string[]; standardTaskIds: string[]; laterTaskIds: string[] }) => void;
+  onReorder: (order: TodoTaskOrder) => void;
 }) {
-  const [groups, setGroups] = useState(() => groupTasks(tasks));
-  const [dragging, setDragging] = useState(false);
-  const [laterCollapsed, setLaterCollapsed] = useState(false);
-  const dragSnapshot = useRef(groups);
-  const activeId = useRef<string | null>(null);
+  const groups = groupTodoTasks(visibleTasks);
+  const [draggedSection, setDraggedSection] = useState<TodoTask['section'] | null>(null);
+  const dragging = draggedSection !== null;
+  const canDropIntoPinned = !dragging || draggedSection === 'pinned' || tasks.filter((task) => task.section === 'pinned').length < 3;
+  const [laterCollapsed, setLaterCollapsed] = useState(true);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { delay: 260, tolerance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 350, tolerance: 8 } }),
@@ -151,15 +146,11 @@ export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpe
   );
 
   useEffect(() => {
-    if (!activeId.current) setGroups(groupTasks(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    let storedPreference = false;
+    let storedPreference = true;
     try {
-      storedPreference = window.localStorage.getItem(`todo-plus:later-collapsed:${scope}:v1`) === 'true';
+      storedPreference = window.localStorage.getItem(`todo-plus:later-collapsed:${scope}:v1`) !== 'false';
     } catch {
-      storedPreference = false;
+      // The section starts collapsed when storage is unavailable.
     }
     const timeout = window.setTimeout(() => setLaterCollapsed(storedPreference), 0);
     return () => window.clearTimeout(timeout);
@@ -177,64 +168,11 @@ export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpe
     });
   }
 
-  function startDrag(event: DragStartEvent) {
-    activeId.current = String(event.active.id);
-    dragSnapshot.current = groups;
-    setDragging(true);
-  }
-
-  function moveAcrossSections(event: DragOverEvent) {
-    if (!event.over) return;
-    const draggedId = String(event.active.id);
-    const overId = String(event.over.id);
-    const source = findSection(groups, draggedId);
-    const target = findSection(groups, overId);
-    if (!source || !target || source === target) return;
-    if (target === 'pinned' && groups.pinned.length >= 3) return;
-
-    setGroups((current) => {
-      const task = current[source].find(({ id }) => id === draggedId);
-      if (!task) return current;
-      const targetIndex = current[target].findIndex(({ id }) => id === overId);
-      const insertionIndex = targetIndex < 0 ? current[target].length : targetIndex;
-      return {
-        ...current,
-        [source]: current[source].filter(({ id }) => id !== draggedId),
-        [target]: [
-          ...current[target].slice(0, insertionIndex),
-          { ...task, section: target },
-          ...current[target].slice(insertionIndex)
-        ]
-      };
-    });
-  }
-
   function finishDrag(event: DragEndEvent) {
-    activeId.current = null;
-    setDragging(false);
-    if (!event.over) {
-      setGroups(dragSnapshot.current);
-      return;
-    }
-
-    const draggedId = String(event.active.id);
-    const overId = String(event.over.id);
-    const section = findSection(groups, draggedId);
-    const overSection = findSection(groups, overId);
-    let next = groups;
-
-    if (section && section === overSection) {
-      const from = groups[section].findIndex(({ id }) => id === draggedId);
-      const to = groups[section].findIndex(({ id }) => id === overId);
-      if (from >= 0 && to >= 0 && from !== to) next = { ...groups, [section]: arrayMove(groups[section], from, to) };
-    }
-
-    setGroups(next);
-    onReorder({
-      pinnedTaskIds: next.pinned.map(({ id }) => id),
-      standardTaskIds: next.standard.map(({ id }) => id),
-      laterTaskIds: next.later.map(({ id }) => id)
-    });
+    setDraggedSection(null);
+    if (pending || !event.over) return;
+    const order = planTodoTaskOrder(tasks, visibleTasks, String(event.active.id), String(event.over.id));
+    if (order) onReorder(order);
   }
 
   const taskTitle = (id: string | number) => tasks.find((task) => task.id === String(id))?.title ?? 'Zadanie';
@@ -243,11 +181,11 @@ export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpe
     <DndContext
       id={`todo-task-board-${scope}`}
       sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={startDrag}
-      onDragOver={moveAcrossSections}
+      collisionDetection={(args) => args.pointerCoordinates ? pointerWithin(args) : closestCenter(args)}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      onDragStart={({ active }) => setDraggedSection(visibleTasks.find(({ id }) => id === active.id)?.section ?? null)}
       onDragEnd={finishDrag}
-      onDragCancel={() => { activeId.current = null; setDragging(false); setGroups(dragSnapshot.current); }}
+      onDragCancel={() => setDraggedSection(null)}
       accessibility={{
         screenReaderInstructions: {
           draggable: 'Aby przenieść zadanie, naciśnij Enter lub spację. Użyj strzałek, aby zmienić jego miejsce. Naciśnij ponownie Enter lub spację, aby zapisać, albo Escape, aby anulować.'
@@ -255,13 +193,13 @@ export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpe
         announcements: {
           onDragStart: ({ active }) => `Podniesiono zadanie ${taskTitle(active.id)}.`,
           onDragOver: ({ active, over }) => over ? `Zadanie ${taskTitle(active.id)} jest nad nowym miejscem.` : undefined,
-          onDragEnd: ({ active }) => `Zapisano nowe miejsce zadania ${taskTitle(active.id)}.`,
+          onDragEnd: ({ active }) => `Zakończono przenoszenie zadania ${taskTitle(active.id)}.`,
           onDragCancel: ({ active }) => `Anulowano przenoszenie zadania ${taskTitle(active.id)}.`
         }
       }}
     >
       <div className="task-board">
-        {sections.filter((section) => dragging || groups[section].length > 0).map((section) => (
+        {todoTaskSections.filter((section) => dragging || groups[section].length > 0).map((section) => (
           <TaskLane
             key={section}
             section={section}
@@ -269,6 +207,7 @@ export function TodoTaskBoard({ tasks, scope, pending, onToggle, onRemove, onOpe
             pending={pending}
             collapsed={section === 'later' && laterCollapsed}
             dragging={dragging}
+            canDrop={section !== 'pinned' || canDropIntoPinned}
             onCollapsedChange={toggleLaterCollapsed}
             onToggle={onToggle}
             onRemove={onRemove}

@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import type { JSONContent } from '@tiptap/core';
 import { normalizeTodoNoteDocument, toggleTodoNoteTaskItem } from './todo-note-document';
 import { todoNoteHighlightColors, todoNoteTextColors } from './todo-note-colors';
+import { normalizeTodoNoteLinkHref } from './todo-note-link';
 
 const textColors = new Set<string>(todoNoteTextColors.map(({ color }) => color));
 const highlightColors = new Set<string>(todoNoteHighlightColors.map(({ color }) => color));
@@ -41,7 +42,10 @@ function renderNode(
   const children = node.content?.map((child, childIndex) => renderNode(child, childIndex, [...path, childIndex], document, idPrefix, pending, onTaskItemToggle));
   if (node.type === 'paragraph') return <p key={index}>{children?.length ? children : <br />}</p>;
   if (node.type === 'bulletList') return <ul key={index}>{children}</ul>;
-  if (node.type === 'orderedList') return <ol key={index}>{children}</ol>;
+  if (node.type === 'orderedList') {
+    const start = typeof node.attrs?.start === 'number' && node.attrs.start > 0 ? node.attrs.start : 1;
+    return <ol key={index} {...(start === 1 ? {} : { start })}>{children}</ol>;
+  }
   if (node.type === 'listItem') return <li key={index}>{children}</li>;
   if (node.type === 'taskList') return <ul key={index} className="todo-checklist">{children}</ul>;
   if (node.type === 'hardBreak') return <br key={index} />;
@@ -53,6 +57,10 @@ function applyMarks(text: ReactNode, marks: JSONContent[]): ReactNode {
   return marks.reduce<ReactNode>((content, mark, index) => {
     if (mark.type === 'bold') return <strong key={index}>{content}</strong>;
     if (mark.type === 'italic') return <em key={index}>{content}</em>;
+    if (mark.type === 'link') {
+      const href = normalizeTodoNoteLinkHref(mark.attrs?.href);
+      return href ? <a key={index} href={href} target="_blank" rel="noopener noreferrer">{content}</a> : content;
+    }
     const color = typeof mark.attrs?.color === 'string' ? mark.attrs.color.toLowerCase() : '';
     if (mark.type === 'textStyle' && textColors.has(color)) return <span key={index} style={{ color }}>{content}</span>;
     if (mark.type === 'highlight' && highlightColors.has(color)) return <mark key={index} style={{ backgroundColor: color }}>{content}</mark>;

@@ -20,14 +20,35 @@ describe('TodoEditor deadline', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Co jest do zrobienia?' }), { target: { value: 'Umówić wizytę' } });
     const deadline = screen.getByLabelText('Termin');
     expect(deadline.getAttribute('type')).toBe('datetime-local');
+    expect(deadline.parentElement?.classList.contains('date-time-control')).toBe(true);
     expect((deadline as HTMLInputElement).value).toBe('2026-11-20T09:00');
     fireEvent.change(deadline, { target: { value: '2026-11-20T18:30' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alarm w terminie' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
 
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'personal',
       dueAt: new Date('2026-11-20T18:30').toISOString(),
-      reminders: []
+      dueAtAlarmEnabled: true,
+      reminders: [],
+      alarmReminders: []
+    })));
+  });
+
+  it('submits alarm delivery for the selected custom reminder only', async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<TodoEditor open scope="personal" pending={false} onClose={vi.fn()} onCreate={onCreate} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Co jest do zrobienia?' }), { target: { value: 'Wyjąć ciasto' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj przypomnienie' }));
+    fireEvent.change(screen.getByLabelText('Przypomnienie 1'), { target: { value: '2026-11-20T18:30' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alarm przypomnienia 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
+
+    const reminder = new Date('2026-11-20T18:30').toISOString();
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      reminders: [reminder],
+      alarmReminders: [reminder]
     })));
   });
 
@@ -68,8 +89,11 @@ describe('TodoEditor deadline', () => {
     expect((recurrence as HTMLSelectElement).disabled).toBe(false);
 
     const formChildren = Array.from(container.querySelector('form')!.children);
-    const deadline = screen.getByLabelText('Termin').closest('label')!;
+    const deadline = screen.getByLabelText('Termin').closest('.due-date-time-field')!;
+    const deadlineAlarm = screen.getByRole('checkbox', { name: 'Alarm w terminie' }).closest('label');
     const planning = screen.getByRole('region', { name: 'Planowanie' });
+    expect(deadlineAlarm?.parentElement).toBe(screen.getByLabelText('Termin').parentElement?.parentElement);
+    expect(deadlineAlarm?.textContent).toBe('');
     expect(formChildren.indexOf(deadline)).toBeLessThan(formChildren.indexOf(planning));
     expect(formChildren.indexOf(planning)).toBeLessThan(formChildren.indexOf(disclosure!));
   });

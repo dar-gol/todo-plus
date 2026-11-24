@@ -1,11 +1,6 @@
 import type { TodoScope } from './todo-api';
 import type { TodoTaskFilter } from './todo-task-filter';
-
-const supportedFilters: ReadonlySet<string> = new Set(['all', 'dated', 'undated', 'month']);
-
-function isTodoTaskFilter(value: string | null): value is TodoTaskFilter {
-  return value !== null && supportedFilters.has(value);
-}
+import { isTodoTaskFilter } from './todo-task-filter';
 
 /** Persists the selected task filter separately for each Todo Plus list. */
 export class TodoTaskFilterPreferences {

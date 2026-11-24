@@ -14,12 +14,23 @@ describe('TodoReminderEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj przypomnienie' }));
 
     expect(screen.getAllByLabelText(/Przypomnienie \d/)).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Usuń przypomnienie 1' }));
+    const alarm = screen.getByRole('checkbox', { name: 'Alarm przypomnienia 1' });
+    const remove = screen.getByRole('button', { name: 'Usuń przypomnienie 1' });
+    const alarmToggle = alarm.closest('label');
+    expect(alarmToggle?.nextElementSibling).toBe(remove);
+    expect(alarmToggle?.textContent).toBe('');
+    expect((alarm as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(alarm);
+    expect((alarm as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(remove);
     expect(screen.getAllByLabelText(/Przypomnienie \d/)).toHaveLength(1);
   });
 
   it('shows existing pending reminders in local date-time fields', () => {
-    render(<TodoReminderEditor reminders={['2026-11-05T17:30:00.000Z']} />);
-    expect(screen.getByLabelText('Przypomnienie 1').getAttribute('type')).toBe('datetime-local');
+    render(<TodoReminderEditor reminders={['2026-11-05T17:30:00.000Z']} alarmReminders={['2026-11-05T17:30:00.000Z']} />);
+    const reminder = screen.getByLabelText('Przypomnienie 1');
+    expect(reminder.getAttribute('type')).toBe('datetime-local');
+    expect(reminder.parentElement?.classList.contains('date-time-control')).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Alarm przypomnienia 1' }) as HTMLInputElement).checked).toBe(true);
   });
 });

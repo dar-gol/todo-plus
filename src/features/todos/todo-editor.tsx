@@ -15,7 +15,7 @@ export function TodoEditor({ open, scope, allowScopeSelection = false, initialDa
   initialDate?: string;
   pending: boolean;
   onClose: () => void;
-  onCreate: (input: { scope: TodoScope; title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: 'daily' | 'weekly' | 'monthly' | 'yearly' | null; reminders: string[] }) => Promise<void>;
+  onCreate: (input: { scope: TodoScope; title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; dueAtAlarmEnabled: boolean; recurrence: 'daily' | 'weekly' | 'monthly' | 'yearly' | null; reminders: string[]; alarmReminders: string[] }) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +41,7 @@ export function TodoEditor({ open, scope, allowScopeSelection = false, initialDa
       }
       const dueAt = dueAtValue ? dateTimeAtIso(dueAtValue) : null;
       const reminders = data.getAll('reminders').map((value) => dateTimeAtIso(String(value)));
+      const alarmReminders = data.getAll('alarmReminders').map((value) => dateTimeAtIso(String(value)));
       await onCreate({
         scope: selectedScope,
         title: String(data.get('title')),
@@ -48,8 +49,10 @@ export function TodoEditor({ open, scope, allowScopeSelection = false, initialDa
         notes: String(data.get('notes') ?? '').trim() || null,
         noteDocument: parseTodoNoteDocumentField(data.get('noteDocument')),
         dueAt,
+        dueAtAlarmEnabled: data.get('dueAtAlarmEnabled') === 'on',
         recurrence: recurrence || null,
-        reminders
+        reminders,
+        alarmReminders
       });
       form.reset();
       setNoteEditorKey((current) => current + 1);

@@ -1,8 +1,9 @@
 import type { JSONContent } from '@tiptap/core';
 import { todoNoteHighlightColors, todoNoteTextColors } from './todo-note-colors';
+import { normalizeTodoNoteLinkHref } from './todo-note-link';
 
 const nodeTypes = new Set(['doc', 'paragraph', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'text', 'hardBreak']);
-const markTypes = new Set(['bold', 'italic', 'textStyle', 'highlight']);
+const markTypes = new Set(['bold', 'italic', 'textStyle', 'highlight', 'link']);
 const textColors = new Set<string>(todoNoteTextColors.map(({ color }) => color));
 const highlightColors = new Set<string>(todoNoteHighlightColors.map(({ color }) => color));
 
@@ -59,6 +60,12 @@ function normalizeNode(value: unknown): JSONContent | null {
   }
 
   if (value.type === 'taskItem') node.attrs = { checked: isRecord(value.attrs) && value.attrs.checked === true };
+  if (value.type === 'orderedList') {
+    const start = isRecord(value.attrs) && Number.isInteger(value.attrs.start) && Number(value.attrs.start) > 0
+      ? Number(value.attrs.start)
+      : 1;
+    node.attrs = { start };
+  }
 
   if (Array.isArray(value.content)) node.content = value.content.map(normalizeNode).filter((child): child is JSONContent => Boolean(child));
   return node;
@@ -67,6 +74,10 @@ function normalizeNode(value: unknown): JSONContent | null {
 function normalizeMark(value: unknown): { type: string; attrs?: Record<string, unknown> } | null {
   if (!isRecord(value) || typeof value.type !== 'string' || !markTypes.has(value.type)) return null;
   if (value.type === 'bold' || value.type === 'italic') return { type: value.type };
+  if (value.type === 'link') {
+    const href = isRecord(value.attrs) ? normalizeTodoNoteLinkHref(value.attrs.href) : null;
+    return href ? { type: 'link', attrs: { href } } : null;
+  }
   if (!isRecord(value.attrs) || typeof value.attrs.color !== 'string') return null;
   const color = value.attrs.color.toLowerCase();
   const allowed = value.type === 'textStyle' ? textColors.has(color) : highlightColors.has(color);

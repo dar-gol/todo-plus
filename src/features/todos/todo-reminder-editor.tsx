@@ -3,20 +3,39 @@
 import { BellPlus, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { dateTimeInputValue } from './todo-date';
+import { TodoDateTimeInput } from './todo-date-time-input';
+import { TodoAlarmToggle } from './todo-alarm-toggle';
 
 const maxReminders = 10;
 
-export function TodoReminderEditor({ reminders = [] }: { reminders?: string[] }) {
-  const [values, setValues] = useState(() => reminders.map(dateTimeInputValue));
+export function TodoReminderEditor({ reminders = [], alarmReminders = [] }: { reminders?: string[]; alarmReminders?: string[] }) {
+  const [values, setValues] = useState(() => {
+    const alarms = new Set(alarmReminders.map(dateTimeInputValue));
+    return reminders.map((reminder) => {
+      const dateTime = dateTimeInputValue(reminder);
+      return { dateTime, alarmEnabled: alarms.has(dateTime) };
+    });
+  });
 
   function addReminder() {
     const nextHour = new Date();
     nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-    setValues((current) => [...current, dateTimeInputValue(nextHour.toISOString())]);
+    setValues((current) => [...current, {
+      dateTime: dateTimeInputValue(nextHour.toISOString()),
+      alarmEnabled: false
+    }]);
   }
 
   function updateReminder(index: number, value: string) {
-    setValues((current) => current.map((item, itemIndex) => itemIndex === index ? value : item));
+    setValues((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, dateTime: value } : item
+    )));
+  }
+
+  function toggleAlarm(index: number) {
+    setValues((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, alarmEnabled: !item.alarmEnabled } : item
+    )));
   }
 
   function removeReminder(index: number) {
@@ -26,22 +45,29 @@ export function TodoReminderEditor({ reminders = [] }: { reminders?: string[] })
   return (
     <fieldset className="reminder-editor">
       <legend><BellPlus aria-hidden="true" />Dodatkowe przypomnienia <span className="optional">data i godzina</span></legend>
-      {values.length === 0 && <p>Dodaj przypomnienie, jeśli chcesz dostać powiadomienie przed terminem.</p>}
-      <div className="reminder-rows">
-        {values.map((value, index) => (
+      {values.length === 0 ? <p>Dodaj przypomnienie, jeśli chcesz dostać powiadomienie przed terminem.</p> : <div className="reminder-rows">
+        {values.map((reminder, index) => (
           <div className="reminder-row" key={index}>
-            <input
-              type="datetime-local"
+            <TodoDateTimeInput
+              ariaLabel={`Przypomnienie ${index + 1}`}
               name="reminders"
-              value={value}
+              value={reminder.dateTime}
               required
-              aria-label={`Przypomnienie ${index + 1}`}
               onChange={(event) => updateReminder(index, event.target.value)}
             />
-            <button type="button" className="icon-button" onClick={() => removeReminder(index)} aria-label={`Usuń przypomnienie ${index + 1}`}><Trash2 aria-hidden="true" /></button>
+            <div className="reminder-actions">
+              <TodoAlarmToggle
+                label={`Alarm przypomnienia ${index + 1}`}
+                name="alarmReminders"
+                value={reminder.dateTime}
+                checked={reminder.alarmEnabled}
+                onChange={() => toggleAlarm(index)}
+              />
+              <button type="button" className="icon-button" onClick={() => removeReminder(index)} aria-label={`Usuń przypomnienie ${index + 1}`}><Trash2 aria-hidden="true" /></button>
+            </div>
           </div>
         ))}
-      </div>
+      </div>}
       <button type="button" className="reminder-add-button" onClick={addReminder} disabled={values.length >= maxReminders}><Plus aria-hidden="true" />Dodaj przypomnienie</button>
     </fieldset>
   );

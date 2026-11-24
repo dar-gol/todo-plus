@@ -1,27 +1,38 @@
 'use client';
 
 import { CalendarClock } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { TodoTask } from './todo-api';
+import { TodoAlarmToggle } from './todo-alarm-toggle';
 import { dueDateTimeInputValue } from './todo-date';
+import { TodoDateTimeInput } from './todo-date-time-input';
 import { TodoReminderEditor } from './todo-reminder-editor';
 
 /** Keeps the task deadline, recurrence and additional reminders in one scheduling boundary. */
 export function TodoScheduleFields({
   initialDueAt,
+  initialDueAtAlarmEnabled = false,
   initialRecurrence,
-  reminders = []
+  reminders = [],
+  alarmReminders = []
 }: {
   initialDueAt?: string | null;
+  initialDueAtAlarmEnabled?: boolean;
   initialRecurrence?: TodoTask['recurrence'];
   reminders?: string[];
+  alarmReminders?: string[];
 }) {
+  const dueAtId = useId();
   const [dueAt, setDueAt] = useState(() => dueDateTimeInputValue(initialDueAt));
+  const [dueAtAlarmEnabled, setDueAtAlarmEnabled] = useState(initialDueAtAlarmEnabled);
   const [recurrence, setRecurrence] = useState<TodoTask['recurrence']>(initialRecurrence ?? null);
 
   function updateDueAt(value: string) {
     setDueAt(value);
-    if (!value) setRecurrence(null);
+    if (!value) {
+      setRecurrence(null);
+      setDueAtAlarmEnabled(false);
+    }
   }
 
   function updateRecurrence(value: string) {
@@ -34,16 +45,25 @@ export function TodoScheduleFields({
 
   return (
     <>
-      <label className="due-date-time-field">
-        Termin <span className="optional">powiadomimy o tej porze</span>
-        <input
-          aria-label="Termin"
-          name="dueAt"
-          type="datetime-local"
-          value={dueAt}
-          onChange={(event) => updateDueAt(event.target.value)}
-        />
-      </label>
+      <div className="due-date-time-field">
+        <label htmlFor={dueAtId}>Termin <span className="optional">powiadomimy o tej porze</span></label>
+        <div className="due-date-time-row">
+          <TodoDateTimeInput
+            ariaLabel="Termin"
+            id={dueAtId}
+            name="dueAt"
+            value={dueAt}
+            onChange={(event) => updateDueAt(event.target.value)}
+          />
+          <TodoAlarmToggle
+            label="Alarm w terminie"
+            name="dueAtAlarmEnabled"
+            checked={dueAtAlarmEnabled}
+            disabled={!dueAt}
+            onChange={() => setDueAtAlarmEnabled((current) => !current)}
+          />
+        </div>
+      </div>
       <section className="task-planning" aria-label="Planowanie">
         <div className="task-planning-heading">
           <CalendarClock aria-hidden="true" />
@@ -64,7 +84,7 @@ export function TodoScheduleFields({
             <option value="yearly">Co rok</option>
           </select>
         </label>
-        <TodoReminderEditor reminders={reminders} />
+        <TodoReminderEditor reminders={reminders} alarmReminders={alarmReminders} />
       </section>
     </>
   );

@@ -3,7 +3,7 @@ import { CalendarDays, Repeat2, Trash2 } from 'lucide-react';
 import type { TodoTask } from './todo-api';
 import { todoRecurrenceLabel } from './todo-recurrence-label';
 
-export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown, onDragMouseDown, onDragTouchStart, dragging = false, itemRef, style, onToggle, onRemove, onOpen }: {
+export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown, onDragMouseDown, onDragTouchStart, dragging = false, dropTarget = false, itemRef, style, onToggle, onRemove, onOpen }: {
   task: TodoTask;
   pending: boolean;
   sortableAttributes?: HTMLAttributes<HTMLLIElement>;
@@ -11,6 +11,7 @@ export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown,
   onDragMouseDown?: MouseEventHandler<HTMLLIElement>;
   onDragTouchStart?: TouchEventHandler<HTMLLIElement>;
   dragging?: boolean;
+  dropTarget?: boolean;
   itemRef?: (node: HTMLLIElement | null) => void;
   style?: CSSProperties;
   onToggle: () => void;
@@ -23,7 +24,7 @@ export function TodoTaskItem({ task, pending, sortableAttributes, onDragKeyDown,
       {...sortableAttributes}
       ref={itemRef}
       style={style}
-      className={`task-item ${sortableAttributes ? 'task-sortable' : ''} ${dragging ? 'task-dragging' : ''} ${completed ? 'task-completed' : ''}`}
+      className={`task-item ${sortableAttributes ? 'task-sortable' : ''} ${dragging ? 'task-dragging' : ''} ${dropTarget ? 'task-lane-over' : ''} ${completed ? 'task-completed' : ''}`}
       role={sortableAttributes ? 'group' : undefined}
       tabIndex={sortableAttributes ? 0 : undefined}
       aria-label={sortableAttributes ? `Zadanie ${task.title}. Przytrzymaj, aby zmienić priorytet.` : undefined}

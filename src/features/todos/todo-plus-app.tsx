@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CheckCircle2, ListTodo, LogOut, Plus, RefreshCw, Settings, ShoppingBasket, Users } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ListTodo, LogOut, Plus, RefreshCw, Search, Settings, ShoppingBasket, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthScreen } from '@/features/auth/auth-screen';
 import { authApi } from '@/features/auth/auth-api';
@@ -17,6 +17,8 @@ import { todoApi, TodoScope } from './todo-api';
 import { TodoTaskDetails } from './todo-task-details';
 import { TodoTaskBoard } from './todo-task-board';
 import { TodoTaskItem } from './todo-task-item';
+import { TodoTaskSearchDialog } from './todo-task-search-dialog';
+import type { TodoTaskOrder } from './todo-task-order';
 import type { TodoDeleteMode, TodoTask } from './todo-api';
 import type { TodoDefaultView } from './todo-default-view';
 import { TodoRecurrenceDeleteDialog } from './todo-recurrence-delete-dialog';
@@ -39,6 +41,7 @@ export function TodoPlusApp() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDate, setEditorDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [defaultView, setDefaultView] = useState<TodoDefaultView>(() => todoViewPreferences.load());
   const [selectedTask, setSelectedTask] = useState<TodoTask | null>(null);
   const [recurringTaskToDelete, setRecurringTaskToDelete] = useState<TodoTask | null>(null);
@@ -57,12 +60,12 @@ export function TodoPlusApp() {
   const personalTasks = useQuery({
     queryKey: ['todos', 'personal'],
     queryFn: () => todoApi.list('personal'),
-    enabled: signedIn === true && (calendarOpen || (!shoppingOpen && scope === 'personal'))
+    enabled: signedIn === true && (searchOpen || calendarOpen || (!shoppingOpen && scope === 'personal'))
   });
   const familyTasks = useQuery({
     queryKey: ['todos', 'family'],
     queryFn: () => todoApi.list('family'),
-    enabled: signedIn === true && (calendarOpen || (!shoppingOpen && scope === 'family'))
+    enabled: signedIn === true && (searchOpen || calendarOpen || (!shoppingOpen && scope === 'family'))
   });
   const publicHolidays = useQuery({
     queryKey: ['public-holidays', 'PL', calendarYear],
@@ -88,7 +91,7 @@ export function TodoPlusApp() {
     enabled: signedIn === true
   });
   const createTask = useMutation({
-    mutationFn: (input: { scope: TodoScope; title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: TodoTask['recurrence']; reminders: string[] }) => todoApi.create(input),
+    mutationFn: (input: { scope: TodoScope; title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; dueAtAlarmEnabled: boolean; recurrence: TodoTask['recurrence']; reminders: string[]; alarmReminders: string[] }) => todoApi.create(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['todos'] });
     }
@@ -98,12 +101,12 @@ export function TodoPlusApp() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] })
   });
   const reorderTasks = useMutation({
-    mutationFn: (input: { scope: TodoScope; pinnedTaskIds: string[]; standardTaskIds: string[]; laterTaskIds: string[] }) => todoApi.reorder(input),
+    mutationFn: (input: TodoTaskOrder & { scope: TodoScope }) => todoApi.reorder(input),
     onSuccess: (updated, input) => queryClient.setQueryData(['todos', input.scope], updated),
     onError: (_error, input) => queryClient.invalidateQueries({ queryKey: ['todos', input.scope] })
   });
   const editTask = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; recurrence: TodoTask['recurrence']; reminders: string[] } }) => todoApi.update(id, input),
+    mutationFn: ({ id, input }: { id: string; input: { title: string; description: string | null; notes: string | null; noteDocument: Record<string, unknown> | null; dueAt: string | null; dueAtAlarmEnabled: boolean; recurrence: TodoTask['recurrence']; reminders: string[]; alarmReminders: string[] } }) => todoApi.update(id, input),
     onSuccess: (updated) => {
       setSelectedTask(updated);
       return queryClient.invalidateQueries({ queryKey: ['todos'] });
@@ -124,7 +127,7 @@ export function TodoPlusApp() {
     }
   });
 
-  const calendarTasks = useMemo(
+  const allTasks = useMemo(
     () => [...(personalTasks.data ?? []), ...(familyTasks.data ?? [])],
     [personalTasks.data, familyTasks.data]
   );
@@ -133,8 +136,10 @@ export function TodoPlusApp() {
   if (!signedIn || !currentUser) return <AuthScreen onSignedIn={() => { setCurrentUser(authApi.currentUser); setSignedIn(true); }} />;
 
   const tasks = scope === 'personal' ? personalTasks : familyTasks;
-  const openTasks = filterTodoTasks(tasks.data?.filter((task) => !task.completedAt) ?? [], taskFilter);
-  const completedTasks = filterTodoTasks(tasks.data?.filter((task) => task.completedAt) ?? [], taskFilter);
+  const archiveOpen = taskFilter === 'archive';
+  const activeTasks = tasks.data?.filter((task) => !task.completedAt) ?? [];
+  const visibleTasks = filterTodoTasks(tasks.data ?? [], taskFilter);
+  const taskActionsPending = updateTask.isPending || removeTask.isPending || reorderTasks.isPending;
   const calendarError = personalTasks.error ?? familyTasks.error;
   const householdName = household.data?.name ?? 'Rodzina';
 
@@ -186,7 +191,7 @@ export function TodoPlusApp() {
         <PushBanner />
         {calendarOpen ? (
           <TodoCalendar
-            tasks={calendarTasks}
+            tasks={allTasks}
             holidays={publicHolidays.data ?? []}
             christianHolidays={christianHolidays.data ?? []}
             nameDays={nameDays.data ?? []}
@@ -218,26 +223,36 @@ export function TodoPlusApp() {
             ) : <section className="tasks-section" aria-labelledby="tasks-title">
               <div className="section-heading">
                 <div><p className="eyebrow">{scope === 'family' ? 'WSPÓLNIE' : 'TYLKO DLA CIEBIE'}</p><h1 id="tasks-title">{scope === 'family' ? householdName : 'Moja lista'}</h1></div>
-                <TodoTaskFilterControl value={taskFilter} onChange={changeTaskFilter} />
+                <div className="task-list-actions">
+                  <button type="button" className="icon-button task-search-button" aria-label="Szukaj zadań" title="Szukaj zadań" aria-haspopup="dialog" onClick={() => setSearchOpen(true)}><Search aria-hidden="true" /></button>
+                  <TodoTaskFilterControl value={taskFilter} onChange={changeTaskFilter} />
+                </div>
               </div>
               {tasks.isLoading && <div className="state-card"><RefreshCw className="spin" aria-hidden="true" />Wczytuję zadania…</div>}
               {tasks.isError && <div className="state-card error-state"><p>{tasks.error.message}</p><button onClick={() => tasks.refetch()}>Spróbuj ponownie</button></div>}
-              {!tasks.isLoading && !tasks.isError && openTasks.length === 0 && <div className="empty-state"><CheckCircle2 aria-hidden="true" /><h2>{taskFilter === 'all' ? 'Wszystko zrobione' : 'Brak pasujących zadań'}</h2><p>{taskFilter === 'all' ? (scope === 'family' ? `Lista „${householdName}” jest teraz pusta.` : 'Dodaj pierwszą rzecz, o której chcesz pamiętać.') : 'Zmień filtr, aby zobaczyć pozostałe zadania.'}</p></div>}
-              {openTasks.length > 0 && (
-                <>
-                  {taskFilter === 'all' ? <TodoTaskBoard
-                      tasks={openTasks}
-                      scope={scope}
-                      pending={updateTask.isPending || removeTask.isPending || reorderTasks.isPending}
-                      onToggle={(task) => updateTask.mutate({ id: task.id, completed: true })}
-                      onRemove={requestTaskRemoval}
-                      onOpen={setSelectedTask}
-                      onReorder={(order) => reorderTasks.mutate({ scope, ...order })}
-                    /> : <ul className="task-list filtered-task-list">{openTasks.map((task) => <TodoTaskItem key={task.id} task={task} pending={updateTask.isPending || removeTask.isPending} onToggle={() => updateTask.mutate({ id: task.id, completed: true })} onRemove={() => requestTaskRemoval(task)} onOpen={() => setSelectedTask(task)} />)}</ul>}
-                  {reorderTasks.isError && <p className="task-order-error" role="alert">Nie udało się zapisać kolejności. Lista została odświeżona — spróbuj ponownie.</p>}
-                </>
-              )}
-              {completedTasks.length > 0 && <details className="completed-group"><summary>Ukończone <span>{completedTasks.length}</span></summary><ul className="task-list">{completedTasks.map((task) => <TodoTaskItem key={task.id} task={task} pending={updateTask.isPending || removeTask.isPending} onToggle={() => updateTask.mutate({ id: task.id, completed: false })} onRemove={() => requestTaskRemoval(task)} onOpen={() => setSelectedTask(task)} />)}</ul></details>}
+              {!tasks.isLoading && !tasks.isError && visibleTasks.length === 0 && <div className="empty-state">
+                <CheckCircle2 aria-hidden="true" />
+                <h2>{archiveOpen ? 'Archiwum jest puste' : taskFilter === 'all' ? 'Wszystko zrobione' : 'Brak pasujących zadań'}</h2>
+                <p>{archiveOpen ? 'Tutaj znajdziesz ukończone zadania z tej listy.' : taskFilter === 'all' ? (scope === 'family' ? `Lista „${householdName}” jest teraz pusta.` : 'Dodaj pierwszą rzecz, o której chcesz pamiętać.') : 'Zmień filtr, aby zobaczyć pozostałe zadania.'}</p>
+              </div>}
+              {visibleTasks.length > 0 && (archiveOpen ? (
+                <ul className="task-list" aria-label="Archiwum zadań">
+                  {visibleTasks.map((task) => <TodoTaskItem key={task.id} task={task} pending={taskActionsPending} onToggle={() => updateTask.mutate({ id: task.id, completed: false })} onRemove={() => requestTaskRemoval(task)} onOpen={() => setSelectedTask(task)} />)}
+                </ul>
+              ) : (
+                <TodoTaskBoard
+                  key={scope}
+                  tasks={activeTasks}
+                  visibleTasks={visibleTasks}
+                  scope={scope}
+                  pending={taskActionsPending}
+                  onToggle={(task) => updateTask.mutate({ id: task.id, completed: true })}
+                  onRemove={requestTaskRemoval}
+                  onOpen={setSelectedTask}
+                  onReorder={(order) => reorderTasks.mutate({ scope, ...order })}
+                />
+              ))}
+              {!archiveOpen && reorderTasks.isError && reorderTasks.variables?.scope === scope && <p className="task-order-error" role="alert">Nie udało się zapisać kolejności zadań. Spróbuj ponownie.</p>}
             </section>}
           </>
         )}
@@ -254,6 +269,14 @@ export function TodoPlusApp() {
         onClose={() => setEditorOpen(false)}
         onCreate={(input) => createTask.mutateAsync(input).then(() => undefined)}
       />
+      {searchOpen && <TodoTaskSearchDialog
+        tasks={allTasks}
+        loading={personalTasks.isLoading || familyTasks.isLoading}
+        hasError={personalTasks.isError || familyTasks.isError}
+        onRetry={() => { void personalTasks.refetch(); void familyTasks.refetch(); }}
+        onClose={() => setSearchOpen(false)}
+        onOpen={(task) => { setSearchOpen(false); setSelectedTask(task); }}
+      />}
       {selectedTask && <TodoTaskDetails key={selectedTask.id} task={selectedTask} pending={editTask.isPending} onClose={() => setSelectedTask(null)} onUpdate={(input) => editTask.mutateAsync({ id: selectedTask.id, input })} />}
       {recurringTaskToDelete && <TodoRecurrenceDeleteDialog
         task={recurringTaskToDelete}

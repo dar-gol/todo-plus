@@ -14,11 +14,13 @@ function task(id: string, dueAt: string | null): TodoTask {
     createdByUserId: 'user-1',
     description: null,
     dueAt,
+    dueAtAlarmEnabled: false,
     id,
     noteDocument: null,
     notes: null,
     recurrence: null,
     reminders: [],
+    alarmReminders: [],
     scope: 'personal',
     section: 'standard',
     title: id,
@@ -47,5 +49,12 @@ describe('task list filters', () => {
 
     expect(todoTaskFilterPreferences.load('personal')).toBe('undated');
     expect(todoTaskFilterPreferences.load('family')).toBe('month');
+  });
+
+  it('shows completed tasks only in the archive', () => {
+    const completed = { ...tasks[1], completedAt: '2026-11-22T08:00:00.000Z' };
+    expect(filterTodoTasks([...tasks, completed], 'all')).toEqual(tasks);
+    expect(filterTodoTasks([...tasks, completed], 'dated')).toEqual(tasks.slice(1));
+    expect(filterTodoTasks([...tasks, completed], 'archive')).toEqual([completed]);
   });
 });
