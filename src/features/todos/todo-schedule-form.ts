@@ -18,10 +18,10 @@ export function readTodoScheduleForm(data: FormData): Pick<Parameters<typeof tod
   return {
     dueAt,
     endAt,
-    dueAtAlarmEnabled: data.get('dueAtAlarmEnabled') === 'on',
+    dueAtAlarmEnabled: false,
     recurrence: interval,
     reminders: data.getAll('reminders').map((value) => dateTimeAtIso(String(value))),
-    alarmReminders: data.getAll('alarmReminders').map((value) => dateTimeAtIso(String(value)))
+    alarmReminders: []
   };
 }
 

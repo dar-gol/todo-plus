@@ -4,37 +4,21 @@ import { BellPlus, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { dateTimeInputValue } from './todo-date';
 import { TodoDateTimeInput } from './todo-date-time-input';
-import { TodoAlarmToggle } from './todo-alarm-toggle';
 
 const maxReminders = 10;
 
-export function TodoReminderEditor({ reminders = [], alarmReminders = [] }: { reminders?: string[]; alarmReminders?: string[] }) {
-  const [values, setValues] = useState(() => {
-    const alarms = new Set(alarmReminders.map(dateTimeInputValue));
-    return reminders.map((reminder) => {
-      const dateTime = dateTimeInputValue(reminder);
-      return { dateTime, alarmEnabled: alarms.has(dateTime) };
-    });
-  });
+export function TodoReminderEditor({ reminders = [] }: { reminders?: string[] }) {
+  const [values, setValues] = useState(() => reminders.map(dateTimeInputValue));
 
   function addReminder() {
     const nextHour = new Date();
     nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-    setValues((current) => [...current, {
-      dateTime: dateTimeInputValue(nextHour.toISOString()),
-      alarmEnabled: false
-    }]);
+    setValues((current) => [...current, dateTimeInputValue(nextHour.toISOString())]);
   }
 
   function updateReminder(index: number, value: string) {
     setValues((current) => current.map((item, itemIndex) => (
-      itemIndex === index ? { ...item, dateTime: value } : item
-    )));
-  }
-
-  function toggleAlarm(index: number) {
-    setValues((current) => current.map((item, itemIndex) => (
-      itemIndex === index ? { ...item, alarmEnabled: !item.alarmEnabled } : item
+      itemIndex === index ? value : item
     )));
   }
 
@@ -51,18 +35,11 @@ export function TodoReminderEditor({ reminders = [], alarmReminders = [] }: { re
             <TodoDateTimeInput
               ariaLabel={`Przypomnienie ${index + 1}`}
               name="reminders"
-              value={reminder.dateTime}
+              value={reminder}
               required
               onChange={(event) => updateReminder(index, event.target.value)}
             />
             <div className="reminder-actions">
-              <TodoAlarmToggle
-                label={`Alarm przypomnienia ${index + 1}`}
-                name="alarmReminders"
-                value={reminder.dateTime}
-                checked={reminder.alarmEnabled}
-                onChange={() => toggleAlarm(index)}
-              />
               <button type="button" className="icon-button" onClick={() => removeReminder(index)} aria-label={`Usuń przypomnienie ${index + 1}`}><Trash2 aria-hidden="true" /></button>
             </div>
           </div>

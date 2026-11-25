@@ -1,6 +1,6 @@
 'use client';
 
-import { AlarmClock, BellRing, CalendarDays, Clock3, Eye, Pencil, Repeat2, StickyNote, UserRound, X } from 'lucide-react';
+import { BellRing, CalendarDays, Clock3, Eye, Pencil, Repeat2, StickyNote, UserRound, X } from 'lucide-react';
 import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { formatTodoDate } from './todo-date';
 import { todoCalendarColorFromField } from './todo-creator-color-options';
@@ -31,7 +31,6 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
   }, []);
 
   const reminders = currentTask.reminders ?? [];
-  const alarmReminders = currentTask.alarmReminders ?? [];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,10 +91,10 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
           <div className="task-preview">
             {currentTask.description ? <p className="task-description">{currentTask.description}</p> : <p className="task-description muted-copy">Bez dodatkowego opisu.</p>}
             {(currentTask.dueAt || reminders.length > 0) && <dl className="task-facts">
-              {currentTask.dueAt && <div><dt><CalendarDays aria-hidden="true" />{currentTask.endAt ? 'Start' : 'Termin'}</dt><dd>{formatTodoDate(currentTask.dueAt, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{currentTask.dueAtAlarmEnabled && <span className="reminder-alarm-label"><AlarmClock aria-hidden="true" />Alarm</span>}</dd></div>}
+              {currentTask.dueAt && <div><dt><CalendarDays aria-hidden="true" />{currentTask.endAt ? 'Start' : 'Termin'}</dt><dd>{formatTodoDate(currentTask.dueAt, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd></div>}
               {currentTask.endAt && <div><dt><CalendarDays aria-hidden="true" />Koniec</dt><dd>{formatTodoDate(currentTask.endAt, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd></div>}
               {currentTask.recurrence && <div><dt><Repeat2 aria-hidden="true" />Powtarzanie</dt><dd>{todoRecurrenceLabel(currentTask.recurrence)}</dd></div>}
-              {reminders.length > 0 && <div><dt><BellRing aria-hidden="true" />Przypomnienia</dt><dd><ul className="reminder-summary">{reminders.map((reminder) => <li key={reminder}>{formatTodoDate(reminder, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{alarmReminders.includes(reminder) && <span className="reminder-alarm-label"><AlarmClock aria-hidden="true" />Alarm</span>}</li>)}</ul></dd></div>}
+              {reminders.length > 0 && <div><dt><BellRing aria-hidden="true" />Przypomnienia</dt><dd><ul className="reminder-summary">{reminders.map((reminder) => <li key={reminder}>{formatTodoDate(reminder, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>)}</ul></dd></div>}
             </dl>}
             {(currentTask.noteDocument || currentTask.notes) && <section className="task-notes"><h3><StickyNote aria-hidden="true" />Notatka</h3><TodoNotePreview document={currentTask.noteDocument} legacyText={currentTask.notes} pending={pending || checklistPending} onTaskItemToggle={(document) => void toggleChecklistItem(document)} /></section>}
             {error && <p className="error-message" role="alert">{error}</p>}
@@ -107,7 +106,7 @@ export function TodoTaskDetails({ task, pending, onClose, onUpdate }: {
         ) : (
           <form id={formId} className="task-edit-form" onSubmit={submit}>
             <label>Co jest do zrobienia?<input name="title" required maxLength={200} defaultValue={currentTask.title} /></label>
-            <TodoScheduleFields initialDueAt={currentTask.dueAt} initialEndAt={currentTask.endAt} initialDueAtAlarmEnabled={currentTask.dueAtAlarmEnabled} initialRecurrence={currentTask.recurrence} reminders={reminders} alarmReminders={alarmReminders} />
+            <TodoScheduleFields initialDueAt={currentTask.dueAt} initialEndAt={currentTask.endAt} initialRecurrence={currentTask.recurrence} reminders={reminders} />
             <TodoMoreFields calendarColor={currentTask.calendarColor} creatorColor={currentTask.createdByColor} description={currentTask.description} noteDocument={currentTask.noteDocument} legacyNotes={currentTask.notes} />
           </form>
         )}

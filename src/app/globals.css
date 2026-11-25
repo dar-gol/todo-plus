@@ -252,6 +252,7 @@ button:disabled { cursor: wait; opacity: .58; }
 .due-date-time-field { min-width: 0; display: grid; gap: 7px; }
 .due-date-time-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 4px; }
 .due-date-time-row .date-time-control { padding-inline: 8px; }
+.due-date-time-row > .date-time-control:only-child { grid-column: 1 / -1; }
 .task-add-end-button { min-height: 44px; display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 0 8px; border: 0; border-radius: 10px; color: var(--accent-dark); background: transparent; font-size: .84rem; font-weight: 800; cursor: pointer; }
 .task-add-end-button:hover { background: var(--accent-soft); }
 .task-add-end-button svg { width: 16px; }
@@ -345,8 +346,6 @@ button:disabled { cursor: wait; opacity: .58; }
 .task-facts dd { margin: 0; color: var(--text); font-size: .9rem; font-weight: 750; }
 .reminder-summary { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .reminder-summary li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.reminder-alarm-label { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 999px; color: #8a430f; background: var(--reminder-soft); font-size: .7rem; font-weight: 850; }
-.reminder-alarm-label svg { width: 13px; }
 .reminder-editor { min-width: 0; display: grid; gap: 10px; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf4; }
 .reminder-editor legend { display: flex; align-items: center; gap: 7px; padding: 0 5px; color: #4f4942; font-size: .9rem; font-weight: 750; }
 .reminder-editor legend svg { width: 17px; color: var(--accent); }
@@ -359,14 +358,6 @@ button:disabled { cursor: wait; opacity: .58; }
 .reminder-actions { display: flex; flex: 0 0 auto; gap: 4px; }
 .reminder-row .icon-button { color: var(--danger); }
 .reminder-row .icon-button svg { width: 18px; }
-.todo-alarm-toggle { position: relative; width: 44px; cursor: pointer; }
-.todo-alarm-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.todo-alarm-toggle span { min-height: 44px; display: grid; place-items: center; border: 1px solid #e8c7a8; border-radius: 12px; color: #765132; background: #fff8f0; }
-.todo-alarm-toggle:hover input:enabled + span { border-color: var(--reminder); }
-.todo-alarm-toggle svg { width: 18px; }
-.todo-alarm-toggle input:checked + span { border-color: var(--reminder); color: #71300f; background: var(--reminder-soft); box-shadow: 0 0 0 2px rgba(245, 158, 11, .1); }
-.todo-alarm-toggle input:focus-visible + span { outline: 3px solid rgba(245, 158, 11, .28); outline-offset: 2px; }
-.todo-alarm-toggle input:disabled + span { cursor: not-allowed; opacity: .5; }
 .reminder-add-button { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px dashed #b9cfc2; border-radius: 12px; color: var(--accent-dark); background: #f6fbf8; font-size: .84rem; font-weight: 800; cursor: pointer; }
 .reminder-add-button:hover { border-style: solid; background: var(--accent-soft); }
 .reminder-add-button svg { width: 17px; }

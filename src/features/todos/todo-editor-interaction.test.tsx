@@ -23,33 +23,33 @@ describe('TodoEditor deadline', () => {
     expect(deadline.parentElement?.classList.contains('date-time-control')).toBe(true);
     expect((deadline as HTMLInputElement).value).toBe('2026-11-20T09:00');
     fireEvent.change(deadline, { target: { value: '2026-11-20T18:30' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Alarm w terminie' }));
+    expect(screen.queryByRole('checkbox', { name: /Alarm/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
 
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'personal',
       calendarColor: null,
       dueAt: new Date('2026-11-20T18:30').toISOString(),
-      dueAtAlarmEnabled: true,
+      dueAtAlarmEnabled: false,
       reminders: [],
       alarmReminders: []
     })));
   });
 
-  it('submits alarm delivery for the selected custom reminder only', async () => {
+  it('submits a normal push reminder without alarm controls', async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<TodoEditor open scope="personal" pending={false} onClose={vi.fn()} onCreate={onCreate} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Co jest do zrobienia?' }), { target: { value: 'Wyjąć ciasto' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj przypomnienie' }));
     fireEvent.change(screen.getByLabelText('Przypomnienie 1'), { target: { value: '2026-11-20T18:30' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Alarm przypomnienia 1' }));
+    expect(screen.queryByRole('checkbox', { name: /Alarm/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
 
     const reminder = new Date('2026-11-20T18:30').toISOString();
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       reminders: [reminder],
-      alarmReminders: [reminder]
+      alarmReminders: []
     })));
   });
 
@@ -63,7 +63,7 @@ describe('TodoEditor deadline', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj koniec terminu' }));
     const end = screen.getByLabelText('Koniec', { exact: true });
     expect(screen.getByLabelText<HTMLInputElement>('Start', { exact: true }).value).toBe('2026-11-20T09:00');
-    expect(screen.getByRole('checkbox', { name: 'Alarm na start' })).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /Alarm/ })).toBeNull();
     fireEvent.change(end, { target: { value: '2026-11-19T10:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
     expect(screen.getByRole('alert').textContent).toContain('Koniec musi');
@@ -126,10 +126,8 @@ describe('TodoEditor deadline', () => {
     expect(submit.form).toBe(container.querySelector('form'));
     expect(container.querySelector('.task-form-scroll')?.contains(submit)).toBe(false);
     const deadline = screen.getByLabelText('Termin').closest('.due-date-time-field')!;
-    const deadlineAlarm = screen.getByRole('checkbox', { name: 'Alarm w terminie' }).closest('label');
     const planning = screen.getByRole('region', { name: 'Planowanie' });
-    expect(deadlineAlarm?.parentElement).toBe(screen.getByLabelText('Termin').parentElement?.parentElement);
-    expect(deadlineAlarm?.textContent).toBe('');
+    expect(screen.queryByRole('checkbox', { name: /Alarm/ })).toBeNull();
     expect(formChildren.indexOf(deadline)).toBeLessThan(formChildren.indexOf(planning));
     expect(formChildren.indexOf(planning)).toBeLessThan(formChildren.indexOf(disclosure!));
   });

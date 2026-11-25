@@ -3,7 +3,6 @@
 import { CalendarClock, Plus, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { TodoTask } from './todo-api';
-import { TodoAlarmToggle } from './todo-alarm-toggle';
 import { dueDateTimeInputValue } from './todo-date';
 import { TodoDateTimeInput } from './todo-date-time-input';
 import { TodoReminderEditor } from './todo-reminder-editor';
@@ -12,23 +11,18 @@ import { TodoReminderEditor } from './todo-reminder-editor';
 export function TodoScheduleFields({
   initialDueAt,
   initialEndAt,
-  initialDueAtAlarmEnabled = false,
   initialRecurrence,
-  reminders = [],
-  alarmReminders = []
+  reminders = []
 }: {
   initialDueAt?: string | null;
   initialEndAt?: string | null;
-  initialDueAtAlarmEnabled?: boolean;
   initialRecurrence?: TodoTask['recurrence'];
   reminders?: string[];
-  alarmReminders?: string[];
 }) {
   const dueAtId = useId();
   const endAtId = useId();
   const [dueAt, setDueAt] = useState(() => dueDateTimeInputValue(initialDueAt));
   const [endAt, setEndAt] = useState(() => initialEndAt ? dueDateTimeInputValue(initialEndAt) : null);
-  const [dueAtAlarmEnabled, setDueAtAlarmEnabled] = useState(initialDueAtAlarmEnabled);
   const [recurrence, setRecurrence] = useState<TodoTask['recurrence']>(initialRecurrence ?? null);
   const startLabel = endAt === null ? 'Termin' : 'Start';
 
@@ -37,7 +31,6 @@ export function TodoScheduleFields({
     if (!value) {
       setEndAt(null);
       setRecurrence(null);
-      setDueAtAlarmEnabled(false);
     }
   }
 
@@ -60,13 +53,6 @@ export function TodoScheduleFields({
             name="dueAt"
             value={dueAt}
             onChange={(event) => updateDueAt(event.target.value)}
-          />
-          <TodoAlarmToggle
-            label={endAt === null ? 'Alarm w terminie' : 'Alarm na start'}
-            name="dueAtAlarmEnabled"
-            checked={dueAtAlarmEnabled}
-            disabled={!dueAt}
-            onChange={() => setDueAtAlarmEnabled((current) => !current)}
           />
         </div>
         {dueAt && (endAt === null ? (
@@ -111,7 +97,7 @@ export function TodoScheduleFields({
             <option value="yearly">Co rok</option>
           </select>
         </label>
-        <TodoReminderEditor reminders={reminders} alarmReminders={alarmReminders} />
+        <TodoReminderEditor reminders={reminders} />
       </section>
     </>
   );

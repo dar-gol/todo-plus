@@ -38,7 +38,7 @@ describe('Todo task presentation', () => {
     expect(html).not.toContain('>Podgląd<');
     expect(html).toContain('Utworzono');
     expect(html).toContain(task.notes);
-    expect(html).toContain('Alarm');
+    expect(html).not.toContain('Alarm');
   });
 
   it('renders checklist state as read-only in preview mode', () => {
