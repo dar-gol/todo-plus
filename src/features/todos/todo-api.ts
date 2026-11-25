@@ -1,5 +1,5 @@
-import type { components, operations } from '@/lib/api/generated';
-import { apiClient } from '@/lib/api/api-client';
+import type { components, operations } from '../../lib/api/generated';
+import { apiClient } from '../../lib/api/api-client';
 
 export type TodoTask = components['schemas']['TodoTaskResponseDto'];
 export type TodoScope = TodoTask['scope'];
@@ -28,8 +28,10 @@ export class TodoApi {
       .then(({ items }) => items);
   }
 
-  remove(taskId: string, mode: TodoDeleteMode = 'series'): Promise<void> {
-    return apiClient.request(`/todos/${taskId}?mode=${mode}`, { method: 'DELETE' });
+  remove(taskId: string, mode: TodoDeleteMode = 'series', mutationId?: string): Promise<void> {
+    const query = new URLSearchParams({ mode });
+    if (mutationId) query.set('mutationId', mutationId);
+    return apiClient.request(`/todos/${taskId}?${query.toString()}`, { method: 'DELETE' });
   }
 }
 

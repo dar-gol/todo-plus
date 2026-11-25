@@ -1,7 +1,7 @@
-import type { components } from '@/lib/api/generated';
-import { apiClient } from '@/lib/api/api-client';
-import { authSession } from '@/lib/auth/auth-session';
-import { ApiRequestError } from '@/lib/api/api-request-error';
+import type { components } from '../../lib/api/generated';
+import { apiClient } from '../../lib/api/api-client';
+import { authSession } from '../../lib/auth/auth-session';
+import { ApiRequestError } from '../../lib/api/api-request-error';
 import type { AuthUserProfile } from './auth-user-profile';
 
 type AuthTokenResponse = components['schemas']['AuthTokenResponseDto'];
@@ -12,6 +12,12 @@ export class AuthApi {
 
   get currentUser(): AuthUserProfile | null {
     return this.profile;
+  }
+
+  get cachedUser(): AuthUserProfile | null {
+    const cached = authSession.cachedUser;
+    this.profile ??= cached;
+    return cached;
   }
 
   async login(email: string, password: string): Promise<void> {
@@ -29,6 +35,7 @@ export class AuthApi {
   }
 
   async restore(): Promise<AuthUserProfile | null> {
+    const cached = this.cachedUser;
     const legacyRefreshToken = authSession.readLegacyRefreshToken();
     try {
       const tokens = await apiClient.request<AuthTokenResponse>('/auth/refresh', {
@@ -38,14 +45,21 @@ export class AuthApi {
       this.saveSession(tokens);
       return tokens.user;
     } catch (error) {
-      if (error instanceof ApiRequestError && error.status === 401) authSession.clear();
-      return null;
+      if (error instanceof ApiRequestError && error.status === 401) {
+        authSession.clear();
+        this.profile = null;
+        return null;
+      }
+      this.profile = cached;
+      return cached;
     }
   }
 
   async logout(): Promise<void> {
     try {
       await apiClient.request<void>('/auth/logout', { method: 'POST' }, false);
+    } catch {
+      // Local logout must remain available without a connection.
     } finally {
       authSession.clear();
       this.profile = null;
@@ -58,11 +72,12 @@ export class AuthApi {
       body: JSON.stringify({ calendarColor })
     });
     this.profile = profile;
+    authSession.saveUser(profile);
     return profile;
   }
 
   private saveSession(tokens: AuthTokenResponse): void {
-    authSession.save(tokens.accessToken);
+    authSession.save(tokens.accessToken, tokens.user);
     this.profile = tokens.user;
   }
 }

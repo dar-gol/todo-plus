@@ -1,5 +1,29 @@
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+const shellCache = 'todo-plus-shell-v1';
+const shellAssets = ['/icon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(cacheApplicationShell().catch(() => undefined));
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => event.waitUntil(
+  caches.keys()
+    .then((keys) => Promise.all(keys.filter((key) => key.startsWith('todo-plus-shell-') && key !== shellCache).map((key) => caches.delete(key))))
+    .then(() => self.clients.claim())
+));
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(navigationResponse(event.request));
+    return;
+  }
+  if (url.pathname.startsWith('/_next/static/') || shellAssets.includes(url.pathname)) {
+    event.respondWith(staticResponse(event.request));
+  }
+});
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
@@ -25,3 +49,42 @@ self.addEventListener('notificationclick', (event) => {
     return existing ? existing.focus() : self.clients.openWindow(url);
   }));
 });
+
+async function cacheApplicationShell() {
+  const cache = await caches.open(shellCache);
+  const response = await fetch('/', { cache: 'no-store' });
+  if (!response.ok) return;
+  await cache.put('/', response.clone());
+  const html = await response.text();
+  const assets = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/giu)]
+    .map((match) => new URL(match[1], self.location.origin))
+    .filter((url) => url.origin === self.location.origin && url.pathname.startsWith('/_next/static/'));
+  await Promise.allSettled([
+    ...shellAssets.map((path) => cache.add(path)),
+    ...assets.map((url) => cache.add(url.toString()))
+  ]);
+}
+
+async function navigationResponse(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(shellCache);
+      await cache.put('/', response.clone());
+    }
+    return response;
+  } catch {
+    return await caches.match('/') || Response.error();
+  }
+}
+
+async function staticResponse(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(shellCache);
+    await cache.put(request, response.clone());
+  }
+  return response;
+}

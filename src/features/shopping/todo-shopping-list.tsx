@@ -1,9 +1,13 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, CookingPot, Plus, RefreshCw, ShoppingBasket, Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { shoppingListApi, type ShoppingListItem } from './shopping-list-api';
+import { authSession } from '../../lib/auth/auth-session';
+import { offlineRepository } from '../offline/offline-runtime';
+import { overlayShoppingItems } from '../offline/offline-query-updates';
+import { useOfflineShoppingActions } from '../offline/use-offline-shopping-actions';
 
 const shoppingListQueryKey = (householdId: string) => ['shopping-list', householdId] as const;
 const kitchenPlusShoppingUrl = process.env.NEXT_PUBLIC_KITCHEN_PLUS_URL ?? 'http://localhost:3001/pl/shopping';
@@ -22,39 +26,42 @@ export function TodoShoppingList({ householdId, householdName }: { householdId: 
   const [label, setLabel] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState<ShoppingListItem['unit']>('pcs');
-  const queryClient = useQueryClient();
   const queryKey = shoppingListQueryKey(householdId);
+  const offlineActions = useOfflineShoppingActions(householdId);
   const shoppingList = useQuery({
     queryKey,
-    queryFn: () => shoppingListApi.list(householdId)
+    queryFn: async () => {
+      const items = await shoppingListApi.list(householdId);
+      const userId = authSession.cachedUser?.id;
+      return userId
+        ? overlayShoppingItems(items, await offlineRepository.listMutations(userId), householdId)
+        : items;
+    }
   });
   const addItem = useMutation({
-    mutationFn: () => shoppingListApi.add(householdId, {
+    mutationFn: () => offlineActions.add({
       label: label.trim(),
       quantity: Number(quantity),
       unit,
       mutationId: createMutationId()
     }),
-    onSuccess: async () => {
+    onSuccess: () => {
       setLabel('');
       setQuantity('1');
-      await queryClient.invalidateQueries({ queryKey });
     }
   });
   const toggleItem = useMutation({
-    mutationFn: (item: ShoppingListItem) => shoppingListApi.update(householdId, item.id, {
+    mutationFn: (item: ShoppingListItem) => offlineActions.update(item, {
       checked: !item.checkedAt,
       version: item.version,
       mutationId: createMutationId()
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    })
   });
   const removeItem = useMutation({
-    mutationFn: (item: ShoppingListItem) => shoppingListApi.remove(householdId, item.id, {
+    mutationFn: (item: ShoppingListItem) => offlineActions.remove(item, {
       version: item.version,
       mutationId: createMutationId()
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    })
   });
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -110,9 +117,9 @@ export function TodoShoppingList({ householdId, householdName }: { householdId: 
       </form>
 
       {mutationError ? <p className="shopping-error" role="alert">{mutationError.message}</p> : null}
-      {shoppingList.isLoading ? <div className="state-card"><RefreshCw className="spin" aria-hidden="true" />Wczytuję zakupy…</div> : null}
-      {shoppingList.isError ? <div className="state-card error-state"><p>{shoppingList.error.message}</p><button onClick={() => shoppingList.refetch()}>Spróbuj ponownie</button></div> : null}
-      {!shoppingList.isLoading && !shoppingList.isError && shoppingList.data?.length === 0 ? (
+      {shoppingList.isLoading && shoppingList.data === undefined ? <div className="state-card"><RefreshCw className="spin" aria-hidden="true" />Wczytuję zakupy…</div> : null}
+      {shoppingList.isError && shoppingList.data === undefined ? <div className="state-card error-state"><p>{shoppingList.error.message}</p><button onClick={() => shoppingList.refetch()}>Spróbuj ponownie</button></div> : null}
+      {shoppingList.data?.length === 0 ? (
         <div className="empty-state shopping-empty"><ShoppingBasket aria-hidden="true" /><h2>Lista zakupów jest pusta</h2><p>Dodaj pierwszą rzecz — pojawi się także w Kitchen Plus.</p></div>
       ) : null}
       {shoppingList.data?.length ? (

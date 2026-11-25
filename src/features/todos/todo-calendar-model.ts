@@ -1,5 +1,7 @@
 import type { TodoTask } from './todo-api';
 
+const millisecondsPerDay = 86_400_000;
+
 export function todoCalendarDateKey(value: Date | string): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   const year = date.getFullYear();
@@ -37,8 +39,8 @@ export function todoCalendarReminderCount(tasks: TodoTask[], dateKey: string): n
 
 export function todoCalendarCreatorsForDay(tasks: TodoTask[], dateKey: string): TodoTask[] {
   const tasksByCreator = new Map<string, TodoTask>();
-  for (const task of activeTasks(tasks)) {
-    if (todoCalendarDueTimeForDay(task, dateKey) && !tasksByCreator.has(task.createdByUserId)) {
+  for (const task of todoCalendarTasksForDay(tasks, dateKey)) {
+    if (!tasksByCreator.has(task.createdByUserId)) {
       tasksByCreator.set(task.createdByUserId, task);
     }
   }
@@ -60,12 +62,32 @@ export function todoCalendarReminderTimesForDay(task: TodoTask, dateKey: string)
   });
 }
 
+/** Returns the latest occurrence whose start-to-end range intersects the requested local day. */
+export function todoCalendarRangeForDay(task: TodoTask, dateKey: string): { startAt: string; endAt: string } | null {
+  if (!task.dueAt || !task.endAt || dateKey < todoCalendarDateKey(task.dueAt)) return null;
+
+  let startAt = task.dueAt;
+  let endAt = task.endAt;
+  if (task.recurrence) {
+    const anchor = new Date(task.dueAt);
+    const occurrenceDay = latestRecurrenceDay(anchor, task.recurrence, dateFromKey(dateKey));
+    startAt = occurrenceDateTime(task.dueAt, todoCalendarDateKey(occurrenceDay));
+    const duration = new Date(task.endAt).getTime() - anchor.getTime();
+    endAt = new Date(new Date(startAt).getTime() + duration).toISOString();
+  }
+
+  return dateKey <= todoCalendarDateKey(endAt) ? { startAt, endAt } : null;
+}
+
 function todoTaskOccursOnDay(task: TodoTask, dateKey: string): boolean {
-  return Boolean(todoCalendarDueTimeForDay(task, dateKey) || todoCalendarReminderTimesForDay(task, dateKey).length);
+  return Boolean(todoCalendarDueTimeForDay(task, dateKey)
+    || todoCalendarRangeForDay(task, dateKey)
+    || todoCalendarReminderTimesForDay(task, dateKey).length);
 }
 
 function firstOccurrenceOnDay(task: TodoTask, dateKey: string): number {
-  const moments = [todoCalendarDueTimeForDay(task, dateKey), ...todoCalendarReminderTimesForDay(task, dateKey)]
+  const startAt = todoCalendarDueTimeForDay(task, dateKey) ?? todoCalendarRangeForDay(task, dateKey)?.startAt;
+  const moments = [startAt, ...todoCalendarReminderTimesForDay(task, dateKey)]
     .filter((value): value is string => Boolean(value))
     .map((value) => new Date(value).getTime());
 
@@ -79,7 +101,7 @@ function recurrenceOccursOnDate(anchorValue: string, recurrence: NonNullable<Tod
   if (candidate < anchorDay) return false;
 
   if (recurrence === 'daily') return true;
-  if (recurrence === 'weekly') return Math.round((candidate.getTime() - anchorDay.getTime()) / 86_400_000) % 7 === 0;
+  if (recurrence === 'weekly') return Math.round((candidate.getTime() - anchorDay.getTime()) / millisecondsPerDay) % 7 === 0;
   if (recurrence === 'monthly') {
     const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
     return candidate.getDate() === Math.min(anchor.getDate(), lastDay);
@@ -88,6 +110,24 @@ function recurrenceOccursOnDate(anchorValue: string, recurrence: NonNullable<Tod
   if (candidate.getMonth() !== anchor.getMonth()) return false;
   const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
   return candidate.getDate() === Math.min(anchor.getDate(), lastDay);
+}
+
+function latestRecurrenceDay(anchor: Date, recurrence: NonNullable<TodoTask['recurrence']>, day: Date): Date {
+  if (recurrence === 'daily') return day;
+  if (recurrence === 'weekly') {
+    const daysSinceOccurrence = (day.getDay() - anchor.getDay() + 7) % 7;
+    return new Date(day.getFullYear(), day.getMonth(), day.getDate() - daysSinceOccurrence, 12);
+  }
+
+  const month = recurrence === 'yearly' ? anchor.getMonth() : day.getMonth();
+  const occurrence = clampedDay(day.getFullYear(), month, anchor.getDate());
+  if (occurrence <= day) return occurrence;
+  return clampedDay(day.getFullYear(), month - (recurrence === 'yearly' ? 12 : 1), anchor.getDate());
+}
+
+function clampedDay(year: number, month: number, day: number): Date {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(day, lastDay), 12);
 }
 
 function occurrenceDateTime(anchorValue: string, dateKey: string): string {

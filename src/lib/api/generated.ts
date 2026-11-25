@@ -1464,11 +1464,26 @@ export interface components {
         CreateTodoTaskDto: {
             /** @description Reminder moments that should request alarm-style sound and vibration. */
             alarmReminders?: string[];
+            /**
+             * @description Overrides the creator color for this task. Null uses the creator color.
+             * @enum {string|null}
+             */
+            calendarColor?: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red" | null;
             description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
             /** @description Requests alarm-style delivery for the task due date notification. */
             dueAtAlarmEnabled?: boolean;
+            /**
+             * Format: date-time
+             * @description Optional end of the task, at or after dueAt.
+             */
+            endAt?: string | null;
+            /**
+             * Format: uuid
+             * @description Stable client mutation id used for offline replay.
+             */
+            mutationId?: string;
             /** @description Validated Tiptap JSON document. */
             noteDocument?: {
                 [key: string]: unknown;
@@ -2284,6 +2299,11 @@ export interface components {
         };
         ReorderTodoTasksDto: {
             laterTaskIds: string[];
+            /**
+             * Format: uuid
+             * @description Stable client mutation id used for offline replay.
+             */
+            mutationId?: string;
             pinnedTaskIds: string[];
             /** @enum {string} */
             scope: "personal" | "family";
@@ -2382,6 +2402,11 @@ export interface components {
         TodoTaskResponseDto: {
             /** @description Pending reminder moments with alarm-style delivery enabled. */
             alarmReminders: string[];
+            /**
+             * @description Task-specific calendar color. Null uses createdByColor.
+             * @enum {string|null}
+             */
+            calendarColor?: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red" | null;
             /** Format: date-time */
             completedAt?: string | null;
             /** Format: date-time */
@@ -2395,6 +2420,11 @@ export interface components {
             dueAt?: string | null;
             /** @description Whether the task due date requests alarm-style delivery. */
             dueAtAlarmEnabled: boolean;
+            /**
+             * Format: date-time
+             * @description Optional end of the task, at or after dueAt.
+             */
+            endAt?: string | null;
             id: string;
             noteDocument?: {
                 [key: string]: unknown;
@@ -2475,12 +2505,27 @@ export interface components {
         UpdateTodoTaskDto: {
             /** @description Reminder moments that should request alarm-style sound and vibration. */
             alarmReminders?: string[];
+            /**
+             * @description Overrides the creator color for this task. Null uses the creator color.
+             * @enum {string|null}
+             */
+            calendarColor?: "blue" | "purple" | "pink" | "orange" | "cyan" | "green" | "yellow" | "red" | null;
             completed?: boolean;
             description?: string | null;
             /** Format: date-time */
             dueAt?: string | null;
             /** @description Requests alarm-style delivery for the task due date notification. */
             dueAtAlarmEnabled?: boolean;
+            /**
+             * Format: date-time
+             * @description Optional end of the task, at or after dueAt.
+             */
+            endAt?: string | null;
+            /**
+             * Format: uuid
+             * @description Stable client mutation id used for offline replay.
+             */
+            mutationId?: string;
             /** @description Validated Tiptap JSON document. */
             noteDocument?: {
                 [key: string]: unknown;
@@ -6032,6 +6077,8 @@ export interface operations {
     TodosController_remove: {
         parameters: {
             query?: {
+                /** @description Stable client mutation id used for offline replay. */
+                mutationId?: string;
                 mode?: "occurrence" | "series";
             };
             header?: never;

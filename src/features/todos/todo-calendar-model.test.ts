@@ -4,6 +4,7 @@ import {
   todoCalendarCreatorsForDay,
   todoCalendarDueCount,
   todoCalendarMonthDays,
+  todoCalendarRangeForDay,
   todoCalendarReminderCount,
   todoCalendarTasksForDay
 } from './todo-calendar-model';
@@ -64,11 +65,11 @@ describe('Todo calendar model', () => {
     expect(todoCalendarReminderCount(tasks, '2026-11-05')).toBe(3);
   });
 
-  it('returns one marker per task creator for a calendar day', () => {
+  it('returns each creator once for tasks due or reminded on a calendar day', () => {
     const tasks = [
       { ...baseTask, id: 'ada-first', dueAt: '2026-11-05T08:00:00.000Z' },
       { ...baseTask, id: 'ada-second', dueAt: '2026-11-05T10:00:00.000Z' },
-      { ...baseTask, id: 'jan', createdByUserId: 'user-2', createdByName: 'Jan', dueAt: '2026-11-05T12:00:00.000Z' }
+      { ...baseTask, id: 'jan', createdByUserId: 'user-2', createdByName: 'Jan', reminders: ['2026-11-05T12:00:00.000Z'] }
     ];
 
     expect(todoCalendarCreatorsForDay(tasks, '2026-11-05').map((task) => task.createdByUserId))
@@ -83,5 +84,32 @@ describe('Todo calendar model', () => {
     expect(todoCalendarTasksForDay(tasks, '2026-11-16').map((task) => task.id)).toEqual(['task-1']);
     expect(todoCalendarDueCount(tasks, '2026-11-16')).toBe(1);
     expect(todoCalendarDueCount(tasks, '2026-11-15')).toBe(0);
+  });
+
+  it('includes all local days through the end without adding extra due dates', () => {
+    const task = {
+      ...baseTask,
+      dueAt: new Date(2026, 10, 5, 9).toISOString(),
+      endAt: new Date(2026, 10, 7, 17).toISOString()
+    };
+
+    expect(['04', '05', '06', '07', '08'].map((day) => todoCalendarTasksForDay([task], `2026-11-${day}`).length))
+      .toEqual([0, 1, 1, 1, 0]);
+    expect(todoCalendarDueCount([task], '2026-11-07')).toBe(0);
+  });
+
+  it('preserves a monthly range after its clamped start and across a month boundary', () => {
+    const task: TodoTask = {
+      ...baseTask,
+      dueAt: new Date(2027, 0, 31, 9).toISOString(),
+      endAt: new Date(2027, 1, 2, 17).toISOString(),
+      recurrence: 'monthly'
+    };
+
+    expect(todoCalendarRangeForDay(task, '2027-03-01')).toEqual({
+      startAt: new Date(2027, 1, 28, 9).toISOString(),
+      endAt: new Date(2027, 2, 2, 17).toISOString()
+    });
+    expect(todoCalendarRangeForDay(task, '2027-03-03')).toBeNull();
   });
 });

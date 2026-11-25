@@ -24,7 +24,7 @@ describe('TodoSettingsDialog', () => {
       onClose={vi.fn()}
     />);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Kolor pink' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Różowy' }));
 
     expect(onCreatorColorChange).toHaveBeenCalledWith('pink');
   });

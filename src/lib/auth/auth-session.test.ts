@@ -25,4 +25,20 @@ describe('AuthSession', () => {
     authSession.save('access-new');
     expect(authSession.readLegacyRefreshToken()).toBeNull();
   });
+
+  it('restores the cached profile synchronously for a fast offline start', () => {
+    const profile = {
+      calendarColor: 'blue' as const,
+      email: 'ada@example.com',
+      id: 'user-1',
+      locale: 'pl',
+      name: 'Ada'
+    };
+
+    authSession.save('access-token', profile);
+
+    expect(authSession.cachedUser).toEqual(profile);
+    authSession.clear();
+    expect(authSession.cachedUser).toBeNull();
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Plus, X } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { TodoTask } from './todo-api';
 import { TodoAlarmToggle } from './todo-alarm-toggle';
@@ -8,28 +8,34 @@ import { dueDateTimeInputValue } from './todo-date';
 import { TodoDateTimeInput } from './todo-date-time-input';
 import { TodoReminderEditor } from './todo-reminder-editor';
 
-/** Keeps the task deadline, recurrence and additional reminders in one scheduling boundary. */
+/** Keeps the task's time range, recurrence and reminders in one form section. */
 export function TodoScheduleFields({
   initialDueAt,
+  initialEndAt,
   initialDueAtAlarmEnabled = false,
   initialRecurrence,
   reminders = [],
   alarmReminders = []
 }: {
   initialDueAt?: string | null;
+  initialEndAt?: string | null;
   initialDueAtAlarmEnabled?: boolean;
   initialRecurrence?: TodoTask['recurrence'];
   reminders?: string[];
   alarmReminders?: string[];
 }) {
   const dueAtId = useId();
+  const endAtId = useId();
   const [dueAt, setDueAt] = useState(() => dueDateTimeInputValue(initialDueAt));
+  const [endAt, setEndAt] = useState(() => initialEndAt ? dueDateTimeInputValue(initialEndAt) : null);
   const [dueAtAlarmEnabled, setDueAtAlarmEnabled] = useState(initialDueAtAlarmEnabled);
   const [recurrence, setRecurrence] = useState<TodoTask['recurrence']>(initialRecurrence ?? null);
+  const startLabel = endAt === null ? 'Termin' : 'Start';
 
   function updateDueAt(value: string) {
     setDueAt(value);
     if (!value) {
+      setEndAt(null);
       setRecurrence(null);
       setDueAtAlarmEnabled(false);
     }
@@ -46,23 +52,44 @@ export function TodoScheduleFields({
   return (
     <>
       <div className="due-date-time-field">
-        <label htmlFor={dueAtId}>Termin <span className="optional">powiadomimy o tej porze</span></label>
+        <label htmlFor={dueAtId}>{startLabel} <span className="optional">powiadomimy o tej porze</span></label>
         <div className="due-date-time-row">
           <TodoDateTimeInput
-            ariaLabel="Termin"
+            ariaLabel={startLabel}
             id={dueAtId}
             name="dueAt"
             value={dueAt}
             onChange={(event) => updateDueAt(event.target.value)}
           />
           <TodoAlarmToggle
-            label="Alarm w terminie"
+            label={endAt === null ? 'Alarm w terminie' : 'Alarm na start'}
             name="dueAtAlarmEnabled"
             checked={dueAtAlarmEnabled}
             disabled={!dueAt}
             onChange={() => setDueAtAlarmEnabled((current) => !current)}
           />
         </div>
+        {dueAt && (endAt === null ? (
+          <button type="button" className="task-add-end-button" onClick={() => setEndAt('')}>
+            <Plus aria-hidden="true" />Dodaj koniec terminu
+          </button>
+        ) : (
+          <>
+            <label htmlFor={endAtId}>Koniec <span className="optional">opcjonalnie</span></label>
+            <div className="due-date-time-row">
+              <TodoDateTimeInput
+                ariaLabel="Koniec"
+                id={endAtId}
+                name="endAt"
+                value={endAt}
+                onChange={(event) => setEndAt(event.target.value)}
+              />
+              <button type="button" className="icon-button" onClick={() => setEndAt(null)} aria-label="Usuń koniec">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+          </>
+        ))}
       </div>
       <section className="task-planning" aria-label="Planowanie">
         <div className="task-planning-heading">

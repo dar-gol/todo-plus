@@ -1,6 +1,7 @@
 import type { components } from './generated';
 import { authSession } from '../auth/auth-session';
 import { ApiRequestError } from './api-request-error';
+import { reportApiConnection } from './connection-events';
 
 type AuthTokenResponse = components['schemas']['AuthTokenResponseDto'];
 
@@ -14,11 +15,18 @@ export class ApiClient {
     headers.set('Accept', 'application/json');
     if (init.body) headers.set('Content-Type', 'application/json');
     if (authSession.accessToken) headers.set('Authorization', `Bearer ${authSession.accessToken}`);
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      credentials: 'include',
-      headers
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        credentials: 'include',
+        headers
+      });
+      reportApiConnection(true);
+    } catch (error) {
+      reportApiConnection(false);
+      throw error;
+    }
 
     if (response.status === 401 && retry && !path.startsWith('/auth/')) {
       const refreshed = await this.refresh();
@@ -46,18 +54,25 @@ export class ApiClient {
   }
 
   private async performRefresh(): Promise<boolean> {
-    const response = await fetch(`${this.baseUrl}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      reportApiConnection(true);
+    } catch (error) {
+      reportApiConnection(false);
+      throw error;
+    }
     if (!response.ok) {
       authSession.clear();
       return false;
     }
     const tokens = await response.json() as AuthTokenResponse;
-    authSession.save(tokens.accessToken);
+    authSession.save(tokens.accessToken, tokens.user);
     return true;
   }
 }

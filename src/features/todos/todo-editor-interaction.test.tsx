@@ -28,6 +28,7 @@ describe('TodoEditor deadline', () => {
 
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'personal',
+      calendarColor: null,
       dueAt: new Date('2026-11-20T18:30').toISOString(),
       dueAtAlarmEnabled: true,
       reminders: [],
@@ -49,6 +50,38 @@ describe('TodoEditor deadline', () => {
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
       reminders: [reminder],
       alarmReminders: [reminder]
+    })));
+  });
+
+  it('validates the optional end and submits it with the selected calendar color', async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<TodoEditor open scope="personal" creatorColor="cyan" initialDate="2026-11-20" pending={false} onClose={vi.fn()} onCreate={onCreate} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Co jest do zrobienia?' }), { target: { value: 'Wyjazd' } });
+    expect(screen.queryByLabelText('Koniec', { exact: true })).toBeNull();
+    expect(screen.getByLabelText('Termin', { exact: true })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj koniec terminu' }));
+    const end = screen.getByLabelText('Koniec', { exact: true });
+    expect(screen.getByLabelText<HTMLInputElement>('Start', { exact: true }).value).toBe('2026-11-20T09:00');
+    expect(screen.getByRole('checkbox', { name: 'Alarm na start' })).toBeTruthy();
+    fireEvent.change(end, { target: { value: '2026-11-19T10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
+    expect(screen.getByRole('alert').textContent).toContain('Koniec musi');
+    expect(onCreate).not.toHaveBeenCalled();
+
+    fireEvent.change(end, { target: { value: '2026-11-22T10:00' } });
+    fireEvent.click(screen.getByText('Więcej').closest('summary')!);
+    expect(screen.queryByRole('radio', { name: 'Kolor domyślny' })).toBeNull();
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: 'Turkusowy' }).checked).toBe(true);
+    const green = screen.getByRole<HTMLInputElement>('radio', { name: 'Zielony' });
+    fireEvent.click(green);
+    expect(green.checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Dodaj zadanie' }));
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      endAt: new Date('2026-11-22T10:00').toISOString(),
+      calendarColor: 'green',
+      reminders: []
     })));
   });
 
@@ -89,6 +122,9 @@ describe('TodoEditor deadline', () => {
     expect((recurrence as HTMLSelectElement).disabled).toBe(false);
 
     const formChildren = Array.from(container.querySelector('form')!.children);
+    const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Dodaj zadanie' });
+    expect(submit.form).toBe(container.querySelector('form'));
+    expect(container.querySelector('.task-form-scroll')?.contains(submit)).toBe(false);
     const deadline = screen.getByLabelText('Termin').closest('.due-date-time-field')!;
     const deadlineAlarm = screen.getByRole('checkbox', { name: 'Alarm w terminie' }).closest('label');
     const planning = screen.getByRole('region', { name: 'Planowanie' });

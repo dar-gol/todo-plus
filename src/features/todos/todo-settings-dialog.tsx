@@ -1,10 +1,11 @@
 'use client';
 
-import { CalendarDays, ListTodo, Palette, Settings, X } from 'lucide-react';
+import { CalendarDays, Check, ListTodo, Palette, Settings, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { AuthUserProfile } from '@/features/auth/auth-user-profile';
 import { todoCreatorColorOptions } from './todo-creator-color-options';
 import type { TodoDefaultView } from './todo-default-view';
+import { TodoShortcutSettings } from './todo-shortcut-settings';
 
 export function TodoSettingsDialog({ open, defaultView, currentUser, colorPending, colorError, onChange, onCreatorColorChange, onClose }: {
   open: boolean;
@@ -44,24 +45,28 @@ export function TodoSettingsDialog({ open, defaultView, currentUser, colorPendin
           <div className="creator-color-heading"><Palette aria-hidden="true" /><div><h3 id="creator-colors-title">Twój kolor</h3><p>Ten kolor oznacza Twoje zadania na wszystkich urządzeniach.</p></div></div>
           <div className="creator-color-row">
             <strong>{currentUser.name?.trim() || currentUser.email}</strong>
-            <div role="radiogroup" aria-label="Twój kolor zadań">
+            <div className="calendar-color-palette" role="radiogroup" aria-label="Twój kolor zadań">
               {todoCreatorColorOptions.map((option) => (
                 <button
                   type="button"
                   role="radio"
                   aria-checked={currentUser.calendarColor === option.value}
-                  aria-label={`Kolor ${option.value}`}
-                  className={currentUser.calendarColor === option.value ? 'selected' : ''}
+                  aria-label={option.label}
+                  title={option.label}
+                  className={`calendar-color-swatch${currentUser.calendarColor === option.value ? ' selected' : ''}`}
                   style={{ backgroundColor: option.css }}
                   onClick={() => onCreatorColorChange(option.value)}
                   disabled={colorPending}
                   key={option.value}
-                />
+                >
+                  <Check aria-hidden="true" />
+                </button>
               ))}
             </div>
             {colorError && <p className="error-message" role="alert">Nie udało się zapisać koloru. Spróbuj ponownie.</p>}
           </div>
           </section>
+        <TodoShortcutSettings />
       </div>
     </dialog>
   );

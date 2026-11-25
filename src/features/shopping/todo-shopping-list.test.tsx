@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
+import 'fake-indexeddb/auto';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TodoShoppingList } from './todo-shopping-list';
 import { shoppingListApi, type ShoppingListItem } from './shopping-list-api';
+import { OfflineSyncProvider } from '../offline/OfflineSyncProvider';
+import { offlineDatabase } from '../offline/offline-runtime';
+import { authSession } from '../../lib/auth/auth-session';
 
 vi.mock('./shopping-list-api', () => ({
   shoppingListApi: {
@@ -33,12 +37,23 @@ function renderShoppingList() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <TodoShoppingList householdId="household-1" householdName="Rodzina" />
+      <OfflineSyncProvider>
+        <TodoShoppingList householdId="household-1" householdName="Rodzina" />
+      </OfflineSyncProvider>
     </QueryClientProvider>
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await offlineDatabase.mutations.clear();
+  await offlineDatabase.snapshots.clear();
+  authSession.save('access-token', {
+    calendarColor: 'blue',
+    email: 'ada@example.com',
+    id: 'user-1',
+    locale: 'pl',
+    name: 'Ada'
+  });
   vi.mocked(shoppingListApi.list).mockResolvedValue([milk]);
   vi.mocked(shoppingListApi.add).mockResolvedValue(milk);
   vi.mocked(shoppingListApi.update).mockResolvedValue({ ...milk, checkedAt: '2026-11-12T12:10:00.000Z', version: 2 });
@@ -46,8 +61,11 @@ beforeEach(() => {
   vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000001');
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await offlineDatabase.mutations.clear();
+  await offlineDatabase.snapshots.clear();
+  authSession.clear();
   vi.restoreAllMocks();
 });
 
